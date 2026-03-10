@@ -5,7 +5,7 @@ python-docx
 # NLP и обработка текста
 spacy
 torch
-
+transformers
 
 # Анализ данных
 numpy
@@ -19,4 +19,5 @@ matplotlib
 # Дополнительно
 python-dotenv
 tqdm
+
 
