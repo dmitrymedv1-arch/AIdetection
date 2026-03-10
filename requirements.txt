@@ -4,7 +4,7 @@ python-docx
 
 # NLP и обработка текста
 spacy
-pydantic==1.10.13
+pydantic
 torch
 accelerate
 
@@ -20,6 +20,7 @@ matplotlib
 # Дополнительно
 python-dotenv
 tqdm
+
 
 
 
