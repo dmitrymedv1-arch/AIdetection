@@ -29,6 +29,16 @@ from scipy import stats
 from docx import Document
 import subprocess
 import io
+import pydantic
+import warnings
+
+# Проверяем версию Pydantic и выдаем предупреждение если нужно
+if pydantic.__version__.startswith('2'):
+    warnings.warn(
+        "Вы используете Pydantic v2. spaCy может работать некорректно. "
+        "Рекомендуется установить Pydantic v1: pip install pydantic==1.10.14",
+        RuntimeWarning
+    )
 
 # Конфигурация страницы
 st.set_page_config(
@@ -516,18 +526,30 @@ class GrammarAnalyzer:
     
     def __init__(self):
         self.nlp = None
+        self._load_spacy()
     
     @st.cache_resource
     def _load_spacy(_self):
         """Загружает spacy модель"""
         try:
+            # Пробуем загрузить модель
             _self.nlp = spacy.load("en_core_web_sm")
-        except:
-            st.warning("Downloading spacy model...")
-            os.system("python -m spacy download en_core_web_sm")
+        except OSError:
+            # Если модель не найдена, скачиваем
+            with st.spinner("Скачивание модели spaCy... Это может занять минуту"):
+                import subprocess
+                subprocess.run(
+                    ["python", "-m", "spacy", "download", "en_core_web_sm"],
+                    check=True,
+                    capture_output=True
+                )
             _self.nlp = spacy.load("en_core_web_sm")
+        except Exception as e:
+            st.error(f"Ошибка загрузки spaCy модели: {e}")
+            # Создаем минимальный пайплайн без модели
+            _self.nlp = spacy.blank("en")
         return _self
-    
+
     def analyze(self, text: str) -> Dict:
         """Анализирует грамматические особенности"""
         results = {
@@ -542,68 +564,79 @@ class GrammarAnalyzer:
             'risk_score': 0
         }
         
-        if not self.nlp:
+        # Проверяем, загружена ли модель
+        if self.nlp is None:
             self._load_spacy()
         
-        # Обрабатываем первые 10 предложений для скорости (или весь текст, если он небольшой)
-        doc = self.nlp(text[:10000])  # Ограничиваем для производительности
+        # Если модель все еще None, возвращаем пустой результат
+        if self.nlp is None:
+            results['error'] = "spaCy model not available"
+            return results
         
-        # Суффиксы номинализации
-        nominalization_suffixes = ['tion', 'ment', 'ance', 'ence', 'ing', 'al', 'ity', 'ism']
-        
-        for sent in doc.sents:
-            results['total_sentences'] += 1
+        try:
+            # Обрабатываем текст с ограничением по размеру
+            text_sample = text[:10000] if len(text) > 10000 else text
+            doc = self.nlp(text_sample)
             
-            # Поиск пассивных конструкций
-            has_passive = False
-            for token in sent:
-                # Пассив: быть + причастие прошедшего времени
-                if token.dep_ == 'auxpass' or (token.tag_ == 'VBN' and any(t.dep_ == 'auxpass' for t in token.head.children)):
-                    has_passive = True
-                    
-            if has_passive:
-                results['passive_sentences'] += 1
-                if len(results['examples']) < 3:
-                    results['examples'].append(str(sent)[:150])
-        
-        # Поиск номинализаций
-        for token in doc:
-            if token.pos_ == 'NOUN':
-                for suffix in nominalization_suffixes:
-                    if token.text.lower().endswith(suffix):
-                        results['nominalization_count'] += 1
-                        break
-        
-        if results['total_sentences'] > 0:
-            results['passive_percentage'] = (results['passive_sentences'] / results['total_sentences']) * 100
-        
-        total_words = len([t for t in doc if t.is_alpha])
-        if total_words > 0:
-            results['nominalizations_per_1000'] = (results['nominalization_count'] * 1000) / total_words
-        
-        # Оценка риска
-        risk_score = 0
-        if results['passive_percentage'] > 45:
-            risk_score += 2
-        elif results['passive_percentage'] > 35:
-            risk_score += 1
-        
-        if results['nominalizations_per_1000'] > 25:
-            risk_score += 2
-        elif results['nominalizations_per_1000'] > 15:
-            risk_score += 1
-        
-        if risk_score >= 3:
-            results['risk_level'] = 'high'
-        elif risk_score >= 2:
-            results['risk_level'] = 'medium'
-        elif risk_score >= 1:
-            results['risk_level'] = 'low'
-        
-        results['risk_score'] = risk_score
+            # Суффиксы номинализации
+            nominalization_suffixes = ['tion', 'ment', 'ance', 'ence', 'ing', 'al', 'ity', 'ism']
+            
+            for sent in doc.sents:
+                results['total_sentences'] += 1
+                
+                # Поиск пассивных конструкций
+                has_passive = False
+                for token in sent:
+                    # Пассив: быть + причастие прошедшего времени
+                    if token.dep_ == 'auxpass' or (token.tag_ == 'VBN' and any(t.dep_ == 'auxpass' for t in token.head.children)):
+                        has_passive = True
+                        
+                if has_passive:
+                    results['passive_sentences'] += 1
+                    if len(results['examples']) < 3:
+                        results['examples'].append(str(sent)[:150])
+            
+            # Поиск номинализаций
+            for token in doc:
+                if token.pos_ == 'NOUN':
+                    for suffix in nominalization_suffixes:
+                        if token.text.lower().endswith(suffix):
+                            results['nominalization_count'] += 1
+                            break
+            
+            if results['total_sentences'] > 0:
+                results['passive_percentage'] = (results['passive_sentences'] / results['total_sentences']) * 100
+            
+            total_words = len([t for t in doc if t.is_alpha])
+            if total_words > 0:
+                results['nominalizations_per_1000'] = (results['nominalization_count'] * 1000) / total_words
+            
+            # Оценка риска
+            risk_score = 0
+            if results['passive_percentage'] > 45:
+                risk_score += 2
+            elif results['passive_percentage'] > 35:
+                risk_score += 1
+            
+            if results['nominalizations_per_1000'] > 25:
+                risk_score += 2
+            elif results['nominalizations_per_1000'] > 15:
+                risk_score += 1
+            
+            if risk_score >= 3:
+                results['risk_level'] = 'high'
+            elif risk_score >= 2:
+                results['risk_level'] = 'medium'
+            elif risk_score >= 1:
+                results['risk_level'] = 'low'
+            
+            results['risk_score'] = risk_score
+            
+        except Exception as e:
+            results['error'] = str(e)
+            results['risk_level'] = 'error'
         
         return results
-
 
 class SemanticAnalyzer:
     """Анализ семантической близости предложений (уровень 3)"""
@@ -797,8 +830,20 @@ class DocumentProcessor:
     @staticmethod
     def split_sentences(text: str, nlp) -> List[str]:
         """Разбивает текст на предложения"""
-        doc = nlp(text[:50000])  # Ограничиваем для производительности
-        return [str(sent).strip() for sent in doc.sents]
+        sentences = []
+        try:
+            # Разбиваем на части для обработки
+            chunk_size = 50000
+            text_chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+            
+            for chunk in text_chunks:
+                doc = nlp(chunk)
+                sentences.extend([str(sent).strip() for sent in doc.sents])
+        except Exception as e:
+            # Если не удалось разбить с помощью spacy, используем простой split
+            sentences = [s.strip() + '.' for s in text.split('.') if len(s.strip()) > 20]
+        
+        return sentences
     
     @staticmethod
     def preprocess(text: str) -> str:
@@ -913,7 +958,28 @@ def main():
             # Шаг 3: Загрузка spacy для сегментации
             status_text.text("Загрузка NLP модели...")
             progress_bar.progress(30)
-            nlp = spacy.load("en_core_web_sm")
+            
+            try:
+                # Пробуем загрузить модель
+                nlp = spacy.load("en_core_web_sm")
+            except OSError:
+                # Если модель не найдена, пытаемся скачать
+                status_text.text("Скачивание NLP модели...")
+                import subprocess
+                try:
+                    subprocess.run(
+                        ["python", "-m", "spacy", "download", "en_core_web_sm"],
+                        check=True,
+                        capture_output=True
+                    )
+                    nlp = spacy.load("en_core_web_sm")
+                except:
+                    st.warning("Не удалось загрузить полную модель spaCy. Используется упрощенная версия.")
+                    # Создаем пустой пайплайн для базовой обработки
+                    nlp = spacy.blank("en")
+            except Exception as e:
+                st.warning(f"Ошибка загрузки spaCy: {e}. Используется упрощенная обработка.")
+                nlp = spacy.blank("en")
             
             # Шаг 4: Сегментация на предложения
             status_text.text("Сегментация текста...")
@@ -1274,4 +1340,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
