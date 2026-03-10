@@ -1,35 +1,27 @@
-streamlit
-python-docx
-docx2txt               # простой и надёжный способ для .docx как запасной вариант
-
-# Для .doc (старый формат) — один из вариантов (выберите один или оба)
-textract             # может читать .doc, .pdf, .docx (но тяжёлый)
-
-# NLP и модели
-spacy
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
-
-# sentence-transformers и зависимости
-sentence-transformers
-transformers
-torch
-
-# лёгкие модели для perplexity (выберите 1–2)
-accelerate
-bitsandbytes
-
 # =====================================
-# Вспомогательные библиотеки
+# Основное приложение и файлы
 # =====================================
-numpy
-pandas
-matplotlib           # для графиков burstiness, тепловых карт и т.п.
-seaborn             # красивые тепловые карты и violin plot'ы
-plotl             # интерактивные графики в streamlit
+streamlit>=1.55.0
+python-docx>=1.1.2
+
+# NLP — основной стек (важно держать совместимыми)
+spacy>=3.8.0
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+transformers>=5.2.0
+sentence-transformers>=5.2.3
+torch>=2.10.0                  # или конкретно 2.10.0
+accelerate>=0.35.0             # под новые transformers
+
+# Данные + метрики
+numpy>=1.26.4,<2.0             # пока без numpy 2.0, чтобы не ломать старый код
+pandas>=2.2.2
+scipy>=1.13.0
+
+# Визуализация (streamlit + plotly — отличная связка)
+plotly>=5.22.0
+matplotlib>=3.9.0              # опционально, если нужен seaborn или сложные стат. графики
 
 # Утилиты
-tqdm
-python-Levenshtein  # если будете делать fuzzy-поиск по шаблонам фраз
-rapidfuzz           # более современная и быстрая альтернатива Levenshtein
-pymupdf           # на случай, если захотите добавить поддержку pdf
-
+tqdm>=4.66.0
+python-dotenv>=1.0.1           # если используешь .env
