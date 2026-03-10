@@ -1,45 +1,35 @@
-# =====================================
-# Основной интерфейс и файловый ввод
-# =====================================
-streamlit>=1.38.0
-python-docx>=1.1.2
-docx2txt>=0.8               # простой и надёжный способ для .docx как запасной вариант
+streamlit
+python-docx
+docx2txt               # простой и надёжный способ для .docx как запасной вариант
 
 # Для .doc (старый формат) — один из вариантов (выберите один или оба)
-textract>=1.6.5             # может читать .doc, .pdf, .docx (но тяжёлый)
-# antiword                   # нет в pip, ставится отдельно через систему
+textract             # может читать .doc, .pdf, .docx (но тяжёлый)
 
-# =====================================
 # NLP и модели
-# =====================================
-spacy>=3.7.6
+spacy
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
 
 # sentence-transformers и зависимости
-sentence-transformers>=3.0.0
-transformers>=4.44.0
-torch>=2.3.0                # cpu версия обычно ставится автоматически, но лучше указать
-# torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu  (если нужна явно cpu-версия)
+sentence-transformers
+transformers
+torch
 
 # лёгкие модели для perplexity (выберите 1–2)
-accelerate>=0.33.0          # нужен почти всегда для transformers
-bitsandbytes>=0.43.3        # опционально, если хотите 4/8-bit квантизацию
-
-# Альтернативы для perplexity (можно оставить 1–2 из списка):
-# qwen — часто лучше TinyLlama по качеству на 1.5–3B
-# tiktoken                    # если будете использовать tiktoken для подсчёта токенов
+accelerate
+bitsandbytes
 
 # =====================================
 # Вспомогательные библиотеки
 # =====================================
-numpy>=1.26.0
-pandas>=2.2.0
-matplotlib>=3.9.0           # для графиков burstiness, тепловых карт и т.п.
-seaborn>=0.13.0             # красивые тепловые карты и violin plot'ы
-plotly>=5.22.0              # интерактивные графики в streamlit
+numpy
+pandas
+matplotlib           # для графиков burstiness, тепловых карт и т.п.
+seaborn             # красивые тепловые карты и violin plot'ы
+plotl             # интерактивные графики в streamlit
 
 # Утилиты
-tqdm>=4.66.0
-python-Levenshtein>=0.25.0  # если будете делать fuzzy-поиск по шаблонам фраз
-rapidfuzz>=3.9.0            # более современная и быстрая альтернатива Levenshtein
-pymupdf>=1.24.0             # на случай, если захотите добавить поддержку pdf
+tqdm
+python-Levenshtein  # если будете делать fuzzy-поиск по шаблонам фраз
+rapidfuzz           # более современная и быстрая альтернатива Levenshtein
+pymupdf           # на случай, если захотите добавить поддержку pdf
+
