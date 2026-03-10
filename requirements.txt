@@ -3,8 +3,8 @@ streamlit
 python-docx
 
 # NLP и обработка текста
-spacy
-pydantic
+spacy==3.7.4
+pydantic==1.10.13
 torch
 accelerate
 
@@ -20,6 +20,7 @@ matplotlib
 # Дополнительно
 python-dotenv
 tqdm
+typing-extensions
 
 
 
