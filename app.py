@@ -20,20 +20,31 @@ import sys
 import warnings
 warnings.filterwarnings('ignore')
 
-# Проверяем и устанавливаем совместимую версию pydantic если нужно
-try:
-    import pydantic
+# Фикс для совместимости pydantic v1 и v2 (нужно для spacy)
+import pydantic
+if hasattr(pydantic, 'v1'):
+    # Если установлена pydantic v2, используем v1 совместимость
+    from pydantic.v1 import BaseModel
+else:
+    # Если установлена pydantic v1
     from pydantic import BaseModel
-except ImportError:
-    pass
 
 # NLP библиотеки с обработкой ошибок импорта
 try:
-    import spacy
-    SPACY_AVAILABLE = True
+    # Подавляем ошибки pydantic в spacy
+    import warnings
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=UserWarning, module='pydantic')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='spacy')
+        import spacy
+        SPACY_AVAILABLE = True
 except ImportError as e:
     SPACY_AVAILABLE = False
     st.error(f"Ошибка загрузки spaCy: {e}. Некоторые функции будут недоступны.")
+except Exception as e:
+    # Ловим любые другие ошибки при импорте spacy
+    SPACY_AVAILABLE = False
+    st.warning(f"Предупреждение при загрузке spaCy: {type(e).__name__}. Некоторые функции могут быть недоступны.")
 
 # Для transformers - загружаем с обработкой ошибок
 try:
@@ -1889,3 +1900,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
