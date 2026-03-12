@@ -1,29 +1,22 @@
-# =====================================
-# Основное приложение и файлы
-# =====================================
-streamlit
-python-docx
+# Основные зависимости
+streamlit==1.28.1
+numpy==1.24.3
+pandas==2.0.3
+plotly==5.15.0
 
-# NLP — основной стек (важно держать совместимыми)
-spacy==3.7.5
-https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
-pydantic==1.10.14
-transformers
-sentence-transformers
-torch                  # или конкретно 2.10.0
-accelerate             # под новые transformers
+# Обработка документов
+python-docx==1.1.0
+antiword==0.4  # легче, чем full Office парсеры
 
-# Данные + метрики
-numpy             # пока без numpy 2.0, чтобы не ломать старый код
-pandas
-scipy
+# NLP (облегченные версии)
+spacy==3.6.1
+transformers==4.35.0
+torch==2.0.1
+sentence-transformers==2.2.2
 
-# Визуализация (streamlit + plotly — отличная связка)
-plotly
-matplotlib              # опционально, если нужен seaborn или сложные стат. графики
+# Для совместимости
+pydantic==2.4.2
+typing-extensions==4.8.0
 
-# Утилиты
-tqdm
-python-dotenv           # если используешь .env
-
-
+# Для производительности
+scikit-learn==1.3.0  # для TTR и lexical density
