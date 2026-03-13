@@ -702,6 +702,38 @@ class UnicodeArtifactDetector:
             results['risk_level'] = 'medium'
         elif risk_score > 0:
             results['risk_level'] = 'low'
+
+        # Risk assessment
+        risk_score = 0
+        confidence = 0.5  # base confidence
+        
+        # Consider artifact density
+        if results['density_per_10k'] > 8:
+            risk_score += 3
+            confidence = 0.95
+        elif results['density_per_10k'] > 3:
+            risk_score += 3  # повышено с 2 до 3
+            confidence = 0.85
+        elif results['density_per_10k'] > 0:
+            risk_score += 2  # повышено с 1 до 2
+            confidence = 0.75
+        
+        # Consider homoglyphs (more dangerous)
+        if results['homoglyph_count'] > 5:
+            risk_score += 3  # повышено с 2 до 3
+            confidence = min(confidence + 0.2, 1.0)
+        elif results['homoglyph_count'] > 0:
+            risk_score += 2  # повышено с 1 до 2
+            confidence = min(confidence + 0.15, 1.0)
+        
+        # Too many non-Latin characters (except Greek in scientific) - suspicious
+        if results['non_latin_total'] > 100 and results['greek_count'] < results['non_latin_total'] * 0.8:
+            risk_score += 2  # повышено с 1 до 2
+        
+        # Если очень много артефактов - максимум риска
+        if results['density_per_10k'] > 15 or results['sup_sub_count'] > 20:
+            risk_score = 3
+            confidence = 1.0
         
         return results
 
@@ -2660,25 +2692,25 @@ class IntegratedRiskScorer:
     def __init__(self):
         # Module weights (updated with new modules)
         self.weights = {
-            'unicode': 0.03,      # 3%
-            'dashes': 0.03,        # 3%
-            'phrases': 0.08,       # 8%
-            'burstiness': 0.06,    # 6%
-            'grammar': 0.08,       # 8%
-            'hedging': 0.12,       # 12% (key)
-            'paragraph': 0.08,     # 8%
-            'perplexity': 0.06,    # 6%
-            'semantic': 0.06,      # 6%
-            'parenthesis': 0.05,   # 5%
-            'punctuation': 0.04,   # 4%
-            'apostrophe': 0.04,    # 4%
-            'enumeration': 0.04,   # 4%
-            'repetitiveness': 0.07, # 7% (new)
-            'lexical_diversity': 0.07, # 7% (new)
-            'log_prob': 0.05,      # 5% (new)
-            'ml_classifier': 0.04  # 4% (new)
+            'unicode': 0.08,      # повышено с 3% до 8%
+            'dashes': 0.06,        # повышено с 3% до 6%
+            'phrases': 0.07,       # уменьшено с 8% до 7%
+            'burstiness': 0.05,    # уменьшено с 6% до 5%
+            'grammar': 0.07,       # уменьшено с 8% до 7%
+            'hedging': 0.10,       # уменьшено с 12% до 10%
+            'paragraph': 0.06,     # уменьшено с 8% до 6%
+            'perplexity': 0.05,    # уменьшено с 6% до 5%
+            'semantic': 0.05,      # уменьшено с 6% до 5%
+            'parenthesis': 0.04,   # оставлено 4%
+            'punctuation': 0.03,   # уменьшено с 4% до 3%
+            'apostrophe': 0.07,    # повышено с 4% до 7%
+            'enumeration': 0.04,   # оставлено 4%
+            'repetitiveness': 0.06, # уменьшено с 7% до 6%
+            'lexical_diversity': 0.06, # уменьшено с 7% до 6%
+            'log_prob': 0.04,      # уменьшено с 5% до 4%
+            'ml_classifier': 0.03  # уменьшено с 4% до 3%
         }
-        
+               
         # Normalize weights
         total = sum(self.weights.values())
         if total > 0:
@@ -3286,6 +3318,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
