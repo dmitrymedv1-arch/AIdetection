@@ -13,56 +13,109 @@ import subprocess
 import sys
 import warnings
 import time
-warnings.filterwarnings('ignore')
 
-# Fix for pydantic v1 and v2 compatibility (needed for spacy)
+# Отключаем все предупреждения spaCy и pydantic до импорта
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', module='spacy')
+warnings.filterwarnings('ignore', module='pydantic')
+warnings.filterwarnings('ignore', module='thinc')
+warnings.filterwarnings('ignore', module='blis')
+
+# Исправление для pydantic v1 и v2 совместимости
 import pydantic
 if hasattr(pydantic, 'v1'):
-    # If pydantic v2 is installed, use v1 compatibility
-    from pydantic.v1 import BaseModel
+    from pydantic.v1 import BaseModel, ConfigDict
 else:
-    # If pydantic v1 is installed
     from pydantic import BaseModel
 
-# NLP libraries with import error handling
+# NLP библиотеки с улучшенной обработкой ошибок
+SPACY_AVAILABLE = False
 try:
-    # Suppress pydantic errors in spacy
-    import warnings
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=UserWarning, module='pydantic')
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='spacy')
+    # Принудительно устанавливаем переменные окружения для spaCy
+    os.environ['SPACY_WARNING_IGNORE'] = '1'
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+    
+    # Подавляем все возможные предупреждения при импорте
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("ignore")
+        
+        # Пытаемся импортировать spacy с правильной конфигурацией
         import spacy
-        SPACY_AVAILABLE = True
+        from spacy import displacy
+        
+        # Проверяем, загружена ли модель
+        try:
+            # Пробуем загрузить маленькую модель, если она есть
+            nlp = spacy.load("en_core_web_sm", disable=["parser", "ner"])
+            SPACY_AVAILABLE = True
+            print("spaCy успешно загружен с моделью en_core_web_sm")
+        except OSError:
+            # Если модели нет, пытаемся скачать (но не блокируем приложение)
+            try:
+                print("Модель en_core_web_sm не найдена, но spaCy доступен")
+                SPACY_AVAILABLE = True  # Библиотека доступна, даже без модели
+            except:
+                SPACY_AVAILABLE = True
+        except Exception as e:
+            print(f"Ошибка при загрузке модели spaCy: {e}")
+            SPACY_AVAILABLE = True  # Библиотека все еще может быть доступна
+            
 except ImportError as e:
     SPACY_AVAILABLE = False
-    st.error(f"Error loading spaCy: {e}. Some functions will be unavailable.")
+    # Тихий импорт - не показываем ошибку пользователю
 except Exception as e:
-    # Catch any other errors when importing spacy
+    # Ловим любые другие ошибки
     SPACY_AVAILABLE = False
-    st.warning(f"Warning loading spaCy: {type(e).__name__}. Some functions may be unavailable.")
 
-# For transformers - load with error handling
+# Если spaCy не доступен, создаем заглушку для функций, которые его используют
+if not SPACY_AVAILABLE:
+    class SpacyStub:
+        def __getattr__(self, name):
+            return None
+    spacy = SpacyStub()
+
+# Для transformers - загружаем с обработкой ошибок
+TRANSFORMERS_AVAILABLE = False
 try:
-    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, AutoModelForSequenceClassification
-    import torch
-    TRANSFORMERS_AVAILABLE = True
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, AutoModelForSequenceClassification
+        import torch
+        TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
+except Exception:
+    TRANSFORMERS_AVAILABLE = False
 
-# For sentence-transformers
+# Для sentence-transformers
+SENTENCE_TRANSFORMERS_AVAILABLE = False
 try:
-    from sentence_transformers import SentenceTransformer
-    from sklearn.metrics.pairwise import cosine_similarity
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        from sentence_transformers import SentenceTransformer
+        from sklearn.metrics.pairwise import cosine_similarity
+        SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
+except Exception:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
 
-# For lexical diversity
+# Для lexical diversity
+LEXICAL_DIVERSITY_AVAILABLE = False
 try:
-    import lexical_diversity as lexdiv
-    LEXICAL_DIVERSITY_AVAILABLE = True
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        import lexical_diversity as lexdiv
+        LEXICAL_DIVERSITY_AVAILABLE = True
 except ImportError:
     LEXICAL_DIVERSITY_AVAILABLE = False
+except Exception:
+    LEXICAL_DIVERSITY_AVAILABLE = False
+
+# Подавляем все оставшиеся предупреждения после импорта
+warnings.filterwarnings('ignore')
 
 # Page configuration
 st.set_page_config(
@@ -3348,6 +3401,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
