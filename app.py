@@ -2844,7 +2844,7 @@ def main():
         st.session_state.results = None
     
     # Header with logo
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([2, 2, 2])
     with col2:
         try:
             st.image('logo.png', use_column_width=True)
@@ -3285,6 +3285,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
