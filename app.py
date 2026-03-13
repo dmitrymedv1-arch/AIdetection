@@ -2978,7 +2978,7 @@ def main():
                     ('punctuation', PunctuationAnalyzer(), 50),
                     ('apostrophe', ApostropheAnalyzer(), 55),
                     ('enumeration', EnumerationAnalyzer(), 60),
-                    ('paragraph', ParagraphAnalyzer(), 65, True),
+                    ('paragraph', ParagraphAnalyzer(), 65),
                     ('repetitiveness', RepetitivenessAnalyzer(), 70),
                     ('lexical_diversity', LexicalDiversityAnalyzer(), 75)
                 ]
@@ -3285,4 +3285,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
