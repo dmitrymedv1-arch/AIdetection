@@ -2724,43 +2724,64 @@ class IntegratedRiskScorer:
         weighted_score = 0
         module_scores = []
         
+        # Проверяем, какие модули есть в результатах
+        available_modules = []
         for module, weight in self.weights.items():
             if module in results and results[module]:
+                available_modules.append(module)
+        
+        # Перенормализуем веса только для доступных модулей
+        if available_modules:
+            # Сумма весов доступных модулей
+            total_available_weight = sum(self.weights[m] for m in available_modules)
+            
+            for module in available_modules:
                 data = results[module]
                 if 'risk_score' in data and data['risk_score'] is not None:
-                    # Normalize risk_score (0-3) to 0-1
+                    # Нормализуем вес относительно доступных модулей
+                    normalized_weight = self.weights[module] / total_available_weight
+                    
+                    # Нормализуем risk_score (0-3) к 0-1
                     max_score = 3
                     norm_score = min(data['risk_score'] / max_score, 1.0)
                     
-                    # Consider module confidence
+                    # Учитываем confidence модуля
                     confidence = data.get('confidence', 0.5)
                     
-                    # For modules where low risk is human indicator, invert
+                    # Для модулей, где низкий риск = человеческий, инвертируем
                     invert_modules = ['parenthesis', 'punctuation']
                     if module in invert_modules and 'risk_score' in data:
                         norm_score = 1.0 - norm_score
+                    
+                    # Вклад модуля в общий score
+                    contribution = norm_score * normalized_weight * 100
                     
                     module_score = {
                         'module': module,
                         'raw_score': data['risk_score'],
                         'norm_score': norm_score,
-                        'weight': weight,
+                        'weight': normalized_weight,
+                        'original_weight': self.weights[module],
                         'confidence': confidence,
-                        'contribution': norm_score * weight * 100
+                        'contribution': contribution
                     }
                     
                     module_scores.append(module_score)
-                    weighted_score += norm_score * weight
-                    total_confidence += confidence * weight
+                    weighted_score += norm_score * normalized_weight
+                    total_confidence += confidence * normalized_weight
         
-        # Final score 0-100
+        # Финальный score 0-100
         final_score = weighted_score * 100
         
-        # Adjust for confidence
+        # Корректировка на уверенность
         if total_confidence > 0:
             final_score = final_score * (0.5 + 0.5 * total_confidence)
         
-        # Determine risk level
+        # Для отладки - выводим веса в st.write (можно закомментировать после проверки)
+        # st.write("Available modules:", available_modules)
+        # st.write("Weights:", {m: self.weights[m] for m in available_modules})
+        
+        # Определяем уровень риска
         risk_level = 'unknown'
         if final_score < 20:
             risk_level = 'very_low'
@@ -2780,10 +2801,10 @@ class IntegratedRiskScorer:
             'risk_level': risk_level,
             'weighted_score': weighted_score,
             'total_confidence': total_confidence,
-            'module_scores': module_scores
+            'module_scores': module_scores,
+            'available_modules': available_modules  # для отладки
         }
-
-
+        
 class DocumentProcessor:
     """Uploaded document processor"""
     
@@ -3318,6 +3339,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
