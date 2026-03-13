@@ -1,11 +1,3 @@
-"""
-Streamlit application for scientific paper AI analysis
-Fixed version with version compatibility and Streamlit Cloud optimization
-Version 4.0 - Added: improved enumerations, all artifact examples, log-prob analysis,
-Yule's I, repetitiveness score, lexical diversity (MTLD/MATTR/HD-D), ML classifier
-Name: CT(A)I-detector
-"""
-
 import streamlit as st
 import re
 import numpy as np
@@ -3339,6 +3331,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
