@@ -3209,24 +3209,12 @@ def main():
                     <h4 style="margin-top: 0;">Sample Statistics</h4>
                 """, unsafe_allow_html=True)
                 
-                metrics_html = '<div class="metric-grid">'
-                metrics = [
-                    ("Sentences", len(sentences), ""),
-                    ("Words", len(text.split()), ""),
-                    ("Characters", len(text), ""),
-                    ("Modules", len(integrated['module_scores']), "")
-                ]
+                cols = st.columns(4)
+                for i, (label, value, unit) in enumerate(metrics):
+                    with cols[i]:
+                        st.metric(label, f"{value}{unit}")
                 
-                for label, value, unit in metrics:
-                    metrics_html += f"""
-                    <div class="metric-card">
-                        <div class="metric-title">{label}</div>
-                        <div class="metric-value">{value}<span class="metric-unit">{unit}</span></div>
-                    </div>
-                    """
-                
-                metrics_html += '</div></div>'
-                st.markdown(metrics_html, unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
             
             # Module spectrum
             st.markdown("""
