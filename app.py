@@ -1839,7 +1839,7 @@ class ParenthesisAnalyzer:
         
         if not text:
             return results
-        
+
         # Find all occurrences in parentheses
         pattern = r'\(([^)]+)\)'
         matches = re.findall(pattern, text)
@@ -1853,13 +1853,14 @@ class ParenthesisAnalyzer:
             word_count = len(words)
             word_counts.append(word_count)
             
-            parenthesis_data = {
-                'text': match[:200] + '...' if len(match) > 200 else match,
-                'word_count': word_count
-            }
-            results['all_parentheses'].append(parenthesis_data)
-            
+            # Добавляем в all_parentheses ТОЛЬКО если слов >= 4
             if word_count >= self.min_words_for_long:
+                parenthesis_data = {
+                    'text': match[:200] + '...' if len(match) > 200 else match,
+                    'word_count': word_count
+                }
+                results['all_parentheses'].append(parenthesis_data)
+                
                 results['long_parentheses'] += 1
                 if len(results['long_examples']) < 20:
                     results['long_examples'].append(parenthesis_data)
@@ -3285,6 +3286,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
