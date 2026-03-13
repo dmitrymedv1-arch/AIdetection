@@ -1,7 +1,8 @@
 """
 Streamlit приложение для анализа научных статей на предмет использования ИИ
 Исправленная версия с учетом совместимости версий и оптимизацией для Streamlit Cloud
-Версия 2.0 - Добавлены: вероятностная оценка, устойчивые маркеры, анализ абзацев
+Версия 3.0 - Добавлены: анализ скобок, пунктуации, апострофов, перечислений, полная статистика
+Дизайн: Спортивная аналитика 2026
 """
 
 import streamlit as st
@@ -63,49 +64,185 @@ except ImportError:
 
 # Конфигурация страницы
 st.set_page_config(
-    page_title="AI Detector for Scientific Papers",
-    page_icon="🔬",
+    page_title="🏆 ЧЕМПИОНАТ AI-ДЕТЕКЦИИ 2026",
+    page_icon="🏆",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Стилизация
+# Стилизация под спортивную аналитику
 st.markdown("""
 <style>
+    /* Основные стили */
     .main-header {
         font-size: 2.5rem;
         color: #1E88E5;
         text-align: center;
         margin-bottom: 1rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
-    .metric-card {
-        background-color: #f0f2f6;
+    
+    /* Табло как на стадионе */
+    .scoreboard {
+        background: linear-gradient(135deg, #1a237e, #0d47a1);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 1rem 0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 3px solid #ffd700;
+        color: white;
+        text-align: center;
+    }
+    
+    .scoreboard-title {
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        color: #ffd700;
+        margin-bottom: 1rem;
+    }
+    
+    .scoreboard-number {
+        font-size: 5rem;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+        text-shadow: 0 0 20px #ffd700;
+        line-height: 1;
+    }
+    
+    .scoreboard-label {
+        font-size: 1.5rem;
+        text-transform: uppercase;
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(255,255,255,0.1);
         border-radius: 10px;
-        padding: 1rem;
-        margin: 0.5rem 0;
+    }
+    
+    /* Карточки игроков (модулей) */
+    .player-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 0.5rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         border-left: 5px solid #1E88E5;
+        transition: transform 0.3s;
+        text-align: center;
     }
-    .warning-text {
-        color: #f39c12;
+    
+    .player-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    
+    .player-name {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #1a237e;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+    
+    .player-score {
+        font-size: 2rem;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .player-medal {
+        font-size: 1.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    /* Медали для уровней риска */
+    .medal-gold {
+        color: #ffd700;
+        text-shadow: 0 0 10px #ffd700;
+    }
+    
+    .medal-silver {
+        color: #c0c0c0;
+        text-shadow: 0 0 10px #c0c0c0;
+    }
+    
+    .medal-bronze {
+        color: #cd7f32;
+        text-shadow: 0 0 10px #cd7f32;
+    }
+    
+    /* Турнирная таблица */
+    .tournament-table {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .tournament-row {
+        display: flex;
+        align-items: center;
+        padding: 0.8rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .tournament-rank {
+        width: 40px;
+        font-weight: bold;
+        color: #1E88E5;
+    }
+    
+    .tournament-player {
+        flex: 2;
+        font-weight: 500;
+    }
+    
+    .tournament-bar {
+        flex: 3;
+        height: 20px;
+        background: #f0f2f6;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 0 1rem;
+    }
+    
+    .tournament-progress {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #ffc107, #f44336);
+        border-radius: 10px;
+        transition: width 0.5s;
+    }
+    
+    .tournament-value {
+        width: 70px;
+        text-align: right;
+        font-family: 'Courier New', monospace;
         font-weight: bold;
     }
-    .danger-text {
-        color: #e74c3c;
+    
+    /* MVP карточка */
+    .mvp-card {
+        background: linear-gradient(135deg, #ffd700, #ffb300);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        color: #1a237e;
+        text-align: center;
         font-weight: bold;
+        animation: pulse 2s infinite;
     }
-    .success-text {
-        color: #27ae60;
-        font-weight: bold;
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
     }
-    .info-box {
-        background-color: #e1f5fe;
-        border-radius: 5px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-    }
-    .stProgress > div > div > div > div {
-        background-color: #1E88E5;
-    }
+    
+    /* Индикаторы риска */
     .risk-high {
         background-color: #ffebee;
         border-left: 5px solid #c62828;
@@ -123,6 +260,32 @@ st.markdown("""
         border-left: 5px solid #2e7d32;
         padding: 1rem;
         margin: 0.5rem 0;
+    }
+    
+    /* Статистика в реальном времени */
+    .stat-box {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        border: 2px solid #1E88E5;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #666;
+        text-transform: uppercase;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #1a237e;
+    }
+    
+    .stat-medal {
+        font-size: 1.2rem;
+        margin-left: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -197,7 +360,9 @@ class UnicodeArtifactDetector:
             'suspicious_chunks': [],
             'risk_level': 'none',
             'risk_score': 0,
-            'confidence': 0
+            'confidence': 0,
+            # Добавляем расширенную статистику
+            'statistics': {}
         }
         
         total_chars = len(text)
@@ -208,15 +373,12 @@ class UnicodeArtifactDetector:
         words = text.split()
         total_words = len(words)
         
-        # Проходим по тексту (ограничиваем для производительности)
-        max_chars = min(total_chars, 50000)
-        text_sample = text[:max_chars]
-        
-        for i, char in enumerate(text_sample):
+        # Проходим по тексту (теперь без ограничения)
+        for i, char in enumerate(text):
             # Проверка надстрочных/подстрочных
             if char in self.sup_sub_chars:
                 results['sup_sub_count'] += 1
-                context = text_sample[max(0, i-20):min(len(text_sample), i+20)]
+                context = text[max(0, i-20):min(len(text), i+20)]
                 results['suspicious_chunks'].append({
                     'char': char,
                     'context': context,
@@ -226,7 +388,7 @@ class UnicodeArtifactDetector:
             # Проверка fullwidth цифр
             elif char in self.fullwidth_digits:
                 results['fullwidth_count'] += 1
-                context = text_sample[max(0, i-20):min(len(text_sample), i+20)]
+                context = text[max(0, i-20):min(len(text), i+20)]
                 results['suspicious_chunks'].append({
                     'char': char,
                     'context': context,
@@ -234,8 +396,8 @@ class UnicodeArtifactDetector:
                 })
             
             # Проверка гомоглифов
-            elif char in self.homoglyphs and i > 0 and i < len(text_sample)-1:
-                surrounding = text_sample[max(0, i-3):i] + text_sample[i+1:min(len(text_sample), i+4)]
+            elif char in self.homoglyphs and i > 0 and i < len(text)-1:
+                surrounding = text[max(0, i-3):i] + text[i+1:min(len(text), i+4)]
                 if all(ord(c) < 128 or c.isspace() or c in '.,;:!?' for c in surrounding):
                     results['homoglyph_count'] += 1
             
@@ -252,7 +414,7 @@ class UnicodeArtifactDetector:
         
         # Плотность на 10,000 символов
         total_suspicious = results['sup_sub_count'] + results['fullwidth_count']
-        results['density_per_10k'] = (total_suspicious * 10000) / max_chars if max_chars > 0 else 0
+        results['density_per_10k'] = (total_suspicious * 10000) / total_chars if total_chars > 0 else 0
         
         # Нелатинские символы на 1000 слов
         if total_words > 0:
@@ -288,6 +450,18 @@ class UnicodeArtifactDetector:
         results['risk_score'] = risk_score
         results['confidence'] = confidence
         
+        # Добавляем статистику
+        results['statistics'] = {
+            'mean_per_1000': results['non_latin_per_1000'],
+            'median_per_1000': results['non_latin_per_1000'],  # Для одного значения совпадает
+            'max_value': results['non_latin_total'],
+            'distribution': {
+                'greek': results['greek_count'],
+                'cyrillic': results['cyrillic_count'],
+                'arabic': results['arabic_count']
+            }
+        }
+        
         # Преобразуем в уровни для обратной совместимости
         if risk_score >= 4:
             results['risk_level'] = 'high'
@@ -318,17 +492,23 @@ class DashAnalyzer:
             'examples': [],
             'risk_level': 'none',
             'risk_score': 0,
-            'confidence': 0
+            'confidence': 0,
+            'statistics': {}
         }
         
         if not sentences:
             return results
+        
+        dash_counts = []
         
         for sent in sentences:
             if not sent or len(sent.strip()) == 0:
                 continue
                 
             dash_count = sent.count(self.em_dash)
+            if dash_count > 0:
+                dash_counts.append(dash_count)
+                
             word_count = len(sent.split())
             is_heavy = False
             
@@ -357,6 +537,17 @@ class DashAnalyzer:
         
         if sentences:
             results['percentage_heavy'] = (len(results['heavy_sentences']) / len(sentences)) * 100
+        
+        # Статистика по тире
+        if dash_counts:
+            results['statistics'] = {
+                'mean_per_sentence': float(np.mean(dash_counts)),
+                'median_per_sentence': float(np.median(dash_counts)),
+                'max_per_sentence': float(np.max(dash_counts)),
+                'std_per_sentence': float(np.std(dash_counts)),
+                'total_dashes': sum(dash_counts),
+                'sentences_with_dashes': len(dash_counts)
+            }
         
         # Вероятностная оценка риска
         risk_score = 0
@@ -415,6 +606,14 @@ class AIPhraseDetector:
             'underscore', 'elucidate', 'illuminate', 'data-driven',
             'paves the way', 'leverage', 'leverages', 'leveraging',
             
+            # ДОБАВЛЕНО: новые слова по заданию
+            'pathway', 'pathways',  # pathway/signaling
+            'signaling', 'signals',  # signaling
+            'Collectively',  # с большой буквы в начале предложения
+            'collectively',  # также в середине предложения
+            'manifest',  # manifest
+            'paradigm', 'paradigms',  # paradigm (уже было, но добавим множественное)
+            
             # Устойчивые связки
             'it is worth noting', 'it is important to note',
             'it should be noted', 'as we delve deeper',
@@ -453,7 +652,8 @@ class AIPhraseDetector:
             'repeated_phrases': [],
             'risk_score': 0,
             'confidence': 0,
-            'risk_level': 'none'
+            'risk_level': 'none',
+            'statistics': {}
         }
         
         if not text or not sentences:
@@ -464,10 +664,12 @@ class AIPhraseDetector:
         total_words = len(words)
         
         # Подсчет каждой фразы
+        phrase_freq = []
         for phrase in self.ai_phrases:
             count = text_lower.count(phrase.lower())
             if count > 0:
                 results['phrase_counts'][phrase] = count
+                phrase_freq.append(count)
         
         # Топ-10 самых частых фраз
         if results['phrase_counts']:
@@ -498,6 +700,17 @@ class AIPhraseDetector:
         
         if total_words > 0:
             results['metadiscourse_per_1000'] = (results['metadiscourse_count'] * 1000) / total_words
+        
+        # Статистика по фразам
+        if phrase_freq:
+            results['statistics'] = {
+                'mean_per_phrase': float(np.mean(phrase_freq)),
+                'median_per_phrase': float(np.median(phrase_freq)),
+                'max_per_phrase': float(np.max(phrase_freq)),
+                'std_per_phrase': float(np.std(phrase_freq)),
+                'total_unique_phrases': len(results['phrase_counts']),
+                'total_phrase_occurrences': sum(phrase_freq)
+            }
         
         # Вероятностная оценка риска
         risk_score = 0
@@ -549,7 +762,8 @@ class BurstinessAnalyzer:
             'burstiness': 'unknown',
             'risk_level': 'none',
             'risk_score': 0,
-            'confidence': 0
+            'confidence': 0,
+            'statistics': {}
         }
         
         if len(sentences) < 5:
@@ -574,6 +788,20 @@ class BurstinessAnalyzer:
         # Межквартильный размах (IQR)
         q75, q25 = np.percentile(sent_lengths, [75, 25])
         results['iqr'] = float(q75 - q25)
+        
+        # Расширенная статистика
+        results['statistics'] = {
+            'mean': results['mean_length'],
+            'median': float(np.median(sent_lengths)),
+            'max': float(np.max(sent_lengths)),
+            'min': float(np.min(sent_lengths)),
+            'std': results['std_length'],
+            'cv': results['cv'],
+            'q25': float(q25),
+            'q75': float(q75),
+            'iqr': results['iqr'],
+            'total_sentences': len(sent_lengths)
+        }
         
         # Вероятностная оценка burstiness
         risk_score = 0
@@ -649,7 +877,8 @@ class GrammarAnalyzer:
             'examples': [],
             'risk_level': 'none',
             'risk_score': 0,
-            'confidence': 0
+            'confidence': 0,
+            'statistics': {}
         }
         
         if not text:
@@ -699,6 +928,15 @@ class GrammarAnalyzer:
         
         if results['total_sentences'] > 0:
             results['passive_percentage'] = (results['passive_indicators'] / results['total_sentences']) * 100
+        
+        # Статистика
+        results['statistics'] = {
+            'passive_mean_per_sentence': results['passive_percentage'] / 100 if results['total_sentences'] > 0 else 0,
+            'nominalizations_per_1000': results['nominalizations_per_1000'],
+            'modals_per_1000': results['modals_per_1000'],
+            'epistemic_per_1000': results['epistemic_per_1000'],
+            'boosters_per_1000': results['boosters_per_1000']
+        }
         
         # Вероятностная оценка риска
         risk_score = 0
@@ -791,7 +1029,8 @@ class HedgingAnalyzer:
             'total_words': 0,
             'risk_level': 'none',
             'risk_score': 0,
-            'confidence': 0
+            'confidence': 0,
+            'statistics': {}
         }
         
         if not text:
@@ -802,22 +1041,40 @@ class HedgingAnalyzer:
         results['total_words'] = len(words)
         
         # Подсчет хеджинга
+        hedging_counts = []
         for word in self.hedging_words:
             if ' ' in word:
-                results['hedging_count'] += text_lower.count(word)
+                count = text_lower.count(word)
+                results['hedging_count'] += count
+                if count > 0:
+                    hedging_counts.append(count)
             else:
-                results['hedging_count'] += sum(1 for w in words if w == word)
+                count = sum(1 for w in words if w == word)
+                results['hedging_count'] += count
+                if count > 0:
+                    hedging_counts.append(count)
         
         # Подсчет категоричных выражений
+        certainty_counts = []
         for phrase in self.certainty_phrases:
             if ' ' in phrase:
-                results['certainty_count'] += text_lower.count(phrase)
+                count = text_lower.count(phrase)
+                results['certainty_count'] += count
+                if count > 0:
+                    certainty_counts.append(count)
             else:
-                results['certainty_count'] += sum(1 for w in words if w == phrase)
+                count = sum(1 for w in words if w == phrase)
+                results['certainty_count'] += count
+                if count > 0:
+                    certainty_counts.append(count)
         
         # Подсчет личных местоимений
+        personal_counts = []
         for pronoun in self.personal_pronouns:
-            results['personal_count'] += sum(1 for w in words if w == pronoun)
+            count = sum(1 for w in words if w == pronoun)
+            results['personal_count'] += count
+            if count > 0:
+                personal_counts.append(count)
         
         # Нормировка на 1000 слов
         if results['total_words'] > 0:
@@ -827,6 +1084,18 @@ class HedgingAnalyzer:
             
             if results['certainty_count'] > 0:
                 results['hedging_ratio'] = results['hedging_count'] / results['certainty_count']
+        
+        # Статистика
+        results['statistics'] = {
+            'hedging_mean_freq': float(np.mean(hedging_counts)) if hedging_counts else 0,
+            'hedging_median_freq': float(np.median(hedging_counts)) if hedging_counts else 0,
+            'hedging_max_freq': float(np.max(hedging_counts)) if hedging_counts else 0,
+            'certainty_mean_freq': float(np.mean(certainty_counts)) if certainty_counts else 0,
+            'personal_mean_freq': float(np.mean(personal_counts)) if personal_counts else 0,
+            'hedging_per_1000': results['hedging_per_1000'],
+            'certainty_per_1000': results['certainty_per_1000'],
+            'hedging_ratio': results['hedging_ratio']
+        }
         
         # Вероятностная оценка риска
         risk_score = 0
@@ -902,7 +1171,8 @@ class ParagraphAnalyzer:
             'risk_score': 0,
             'confidence': 0,
             'risk_level': 'none',
-            'note': 'Paragraph analysis requires sentence-transformers'
+            'note': 'Paragraph analysis requires sentence-transformers',
+            'statistics': {}
         }
         
         if not self.available or len(text) < 500:
@@ -914,10 +1184,21 @@ class ParagraphAnalyzer:
         
         results['paragraphs'] = paragraphs[:10]  # Ограничиваем
         
+        # Статистика по длине абзацев
+        para_lengths = [len(p.split()) for p in paragraphs]
+        results['statistics'] = {
+            'paragraph_count': len(paragraphs),
+            'mean_length': float(np.mean(para_lengths)),
+            'median_length': float(np.median(para_lengths)),
+            'max_length': float(np.max(para_lengths)),
+            'min_length': float(np.min(para_lengths)),
+            'std_length': float(np.std(para_lengths)),
+            'cv_length': float(np.std(para_lengths) / np.mean(para_lengths)) if np.mean(para_lengths) > 0 else 0
+        }
+        
         # Если нет модели, используем простые метрики
         if not self.model:
             # Простая метрика: вариативность длины абзацев
-            para_lengths = [len(p.split()) for p in paragraphs]
             if len(para_lengths) > 1:
                 cv_lengths = np.std(para_lengths) / np.mean(para_lengths)
                 if cv_lengths < 0.3:
@@ -950,6 +1231,8 @@ class ParagraphAnalyzer:
             
             if intra_similarities:
                 results['intra_paragraph_similarity'] = float(np.mean(intra_similarities))
+                results['statistics']['intra_similarity_mean'] = results['intra_paragraph_similarity']
+                results['statistics']['intra_similarity_std'] = float(np.std(intra_similarities))
             
             # Межабзацная похожесть
             if len(para_embeddings) > 1:
@@ -959,6 +1242,8 @@ class ParagraphAnalyzer:
                         np.linalg.norm(para_embeddings[i]) * np.linalg.norm(para_embeddings[i+1]))
                     inter_similarities.append(sim)
                 results['inter_paragraph_similarity'] = float(np.mean(inter_similarities))
+                results['statistics']['inter_similarity_mean'] = results['inter_paragraph_similarity']
+                results['statistics']['inter_similarity_std'] = float(np.std(inter_similarities)) if len(inter_similarities) > 1 else 0
             
             # Плавность переходов (последнее предложение абзаца - первое следующего)
             transition_sims = []
@@ -974,6 +1259,8 @@ class ParagraphAnalyzer:
             
             if transition_sims:
                 results['transition_smoothness'] = float(np.mean(transition_sims))
+                results['statistics']['transition_mean'] = results['transition_smoothness']
+                results['statistics']['transition_std'] = float(np.std(transition_sims)) if len(transition_sims) > 1 else 0
             
             # Оценка риска
             risk_score = 0
@@ -1022,15 +1309,22 @@ class ParagraphAnalyzer:
 
 
 class PerplexityAnalyzer:
-    """Анализ перплексии (упрощенная версия без transformers)"""
+    """Анализ перплексии (активирован)"""
     
     def __init__(self):
         self.available = TRANSFORMERS_AVAILABLE
         self.model = None
         self.tokenizer = None
+        if self.available:
+            try:
+                # Используем маленькую модель для экономии ресурсов
+                self.tokenizer = AutoTokenizer.from_pretrained('gpt2')
+                self.model = AutoModelForCausalLM.from_pretrained('gpt2')
+            except:
+                self.available = False
     
     def analyze(self, text: str) -> Dict:
-        """Упрощенный анализ - возвращает заглушку если модель недоступна"""
+        """Анализ перплексии текста"""
         results = {
             'perplexities': [],
             'mean_perplexity': 0,
@@ -1039,28 +1333,105 @@ class PerplexityAnalyzer:
             'risk_level': 'none',
             'risk_score': 0,
             'confidence': 0,
-            'note': 'Perplexity analysis requires transformers library'
+            'note': 'Perplexity analysis active',
+            'statistics': {}
         }
         
         if not self.available or len(text) < 100:
             results['note'] = 'Perplexity analysis unavailable or text too short'
+            results['available'] = False
             return results
         
-        # Здесь можно добавить реальный анализ перплексии
-        # но для Streamlit Cloud лучше использовать упрощенную версию
-        results['note'] = 'Perplexity analysis disabled for performance'
+        try:
+            # Разбиваем текст на чанки для анализа
+            sentences = re.split(r'[.!?]+', text)
+            chunks = []
+            current_chunk = ""
+            
+            for sent in sentences[:50]:  # Ограничиваем для производительности
+                if len(current_chunk) + len(sent) < 500:
+                    current_chunk += sent + ". "
+                else:
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    current_chunk = sent + ". "
+            
+            if current_chunk:
+                chunks.append(current_chunk)
+            
+            # Вычисляем перплексию для каждого чанка
+            perplexities = []
+            for chunk in chunks[:10]:  # Ограничиваем количество чанков
+                if len(chunk.strip()) < 50:
+                    continue
+                    
+                inputs = self.tokenizer(chunk, return_tensors='pt', truncation=True, max_length=512)
+                with torch.no_grad():
+                    outputs = self.model(**inputs, labels=inputs['input_ids'])
+                    loss = outputs.loss
+                    perplexity = torch.exp(loss).item()
+                    perplexities.append(perplexity)
+            
+            if perplexities:
+                results['perplexities'] = perplexities
+                results['mean_perplexity'] = float(np.mean(perplexities))
+                results['median_perplexity'] = float(np.median(perplexities))
+                results['perplexity_variance'] = float(np.var(perplexities))
+                
+                results['statistics'] = {
+                    'mean': results['mean_perplexity'],
+                    'median': results['median_perplexity'],
+                    'std': float(np.std(perplexities)),
+                    'min': float(np.min(perplexities)),
+                    'max': float(np.max(perplexities)),
+                    'q25': float(np.percentile(perplexities, 25)),
+                    'q75': float(np.percentile(perplexities, 75))
+                }
+                
+                # Оценка риска на основе перплексии
+                # Низкая перплексия (< 30) может указывать на ИИ-текст
+                risk_score = 0
+                confidence = 0.5
+                
+                if results['mean_perplexity'] < 30:
+                    risk_score = 3
+                    confidence = 0.8
+                    results['risk_level'] = 'high'
+                elif results['mean_perplexity'] < 50:
+                    risk_score = 2
+                    confidence = 0.6
+                    results['risk_level'] = 'medium'
+                elif results['mean_perplexity'] < 80:
+                    risk_score = 1
+                    confidence = 0.5
+                    results['risk_level'] = 'low'
+                
+                results['risk_score'] = risk_score
+                results['confidence'] = confidence
+            
+            results['available'] = True
+            
+        except Exception as e:
+            results['note'] = f'Error in perplexity analysis: {str(e)}'
+            results['available'] = False
         
         return results
 
 
 class SemanticAnalyzer:
-    """Анализ семантической близости (упрощенная версия)"""
+    """Анализ семантической близости (активирован)"""
     
     def __init__(self):
         self.available = SENTENCE_TRANSFORMERS_AVAILABLE
+        self.model = None
+        if self.available:
+            try:
+                self.model = SentenceTransformer('all-MiniLM-L6-v2')
+            except:
+                self.available = False
     
     def analyze(self, sentences: List[str]) -> Dict:
-        """Упрощенный семантический анализ"""
+        """Семантический анализ предложений"""
         results = {
             'similarities': [],
             'mean_similarity': 0,
@@ -1068,36 +1439,481 @@ class SemanticAnalyzer:
             'risk_level': 'none',
             'risk_score': 0,
             'confidence': 0,
-            'note': 'Semantic analysis requires sentence-transformers'
+            'note': 'Semantic analysis active',
+            'statistics': {},
+            'available': self.available
         }
         
         if not self.available or len(sentences) < 5:
+            results['note'] = 'Semantic analysis unavailable or too few sentences'
             return results
         
-        # Упрощенная версия - используем длину предложений как прокси
-        lengths = [len(s) for s in sentences[:50] if s]
-        if len(lengths) > 1:
-            # Вычисляем "гладкость" как обратную дисперсию длин
-            std_length = np.std(lengths)
-            mean_length = np.mean(lengths)
-            if mean_length > 0:
-                cv = std_length / mean_length
-                # Интерпретируем низкую вариативность как "гладкий" текст
-                if cv < 0.3:
-                    results['mean_similarity'] = 0.8
-                    results['risk_score'] = 3
-                    results['confidence'] = 0.7
+        try:
+            # Берем выборку предложений для анализа
+            sample_sents = [s for s in sentences if len(s.split()) > 5][:30]
+            if len(sample_sents) < 5:
+                return results
+            
+            # Получаем эмбеддинги
+            embeddings = self.model.encode(sample_sents)
+            
+            # Вычисляем попарные сходства
+            similarities = []
+            for i in range(len(embeddings)):
+                for j in range(i+1, len(embeddings)):
+                    sim = np.dot(embeddings[i], embeddings[j]) / (
+                        np.linalg.norm(embeddings[i]) * np.linalg.norm(embeddings[j]))
+                    similarities.append(sim)
+            
+            if similarities:
+                results['similarities'] = similarities[:100]  # Ограничиваем
+                results['mean_similarity'] = float(np.mean(similarities))
+                results['similarity_variance'] = float(np.var(similarities))
+                
+                results['statistics'] = {
+                    'mean': results['mean_similarity'],
+                    'median': float(np.median(similarities)),
+                    'std': float(np.std(similarities)),
+                    'min': float(np.min(similarities)),
+                    'max': float(np.max(similarities)),
+                    'q25': float(np.percentile(similarities, 25)),
+                    'q75': float(np.percentile(similarities, 75))
+                }
+                
+                # Оценка риска: высокая семантическая близость (>0.7) может указывать на ИИ
+                risk_score = 0
+                confidence = 0.5
+                
+                if results['mean_similarity'] > 0.7:
+                    risk_score = 3
+                    confidence = 0.8
                     results['risk_level'] = 'high'
-                elif cv < 0.5:
-                    results['mean_similarity'] = 0.6
-                    results['risk_score'] = 2
-                    results['confidence'] = 0.6
+                elif results['mean_similarity'] > 0.6:
+                    risk_score = 2
+                    confidence = 0.6
                     results['risk_level'] = 'medium'
-                else:
-                    results['mean_similarity'] = 0.3
-                    results['risk_score'] = 1
-                    results['confidence'] = 0.5
+                elif results['mean_similarity'] > 0.5:
+                    risk_score = 1
+                    confidence = 0.5
                     results['risk_level'] = 'low'
+                
+                results['risk_score'] = risk_score
+                results['confidence'] = confidence
+            
+        except Exception as e:
+            results['note'] = f'Error in semantic analysis: {str(e)}'
+            results['available'] = False
+        
+        return results
+
+
+class ParenthesisAnalyzer:
+    """Анализ длинных пояснений в скобках (НОВЫЙ МОДУЛЬ)"""
+    
+    def __init__(self):
+        pass
+    
+    def analyze(self, text: str) -> Dict:
+        """
+        Анализирует содержание в круглых скобках
+        Длинные пояснения (>=5 слов) - признак человеческого текста
+        """
+        results = {
+            'total_parentheses': 0,
+            'short_parentheses': 0,  # <5 слов
+            'long_parentheses': 0,    # >=5 слов
+            'long_percentage': 0,
+            'long_examples': [],
+            'average_words_per_parenthesis': 0,
+            'risk_score': 0,
+            'confidence': 0,
+            'risk_level': 'none',
+            'statistics': {}
+        }
+        
+        if not text:
+            return results
+        
+        # Находим все содержимое в круглых скобках
+        pattern = r'\(([^()]+)\)'  # Простой паттерн для скобок
+        matches = re.findall(pattern, text)
+        
+        if not matches:
+            return results
+        
+        results['total_parentheses'] = len(matches)
+        
+        word_counts = []
+        long_examples = []
+        
+        for match in matches[:50]:  # Ограничиваем для производительности
+            words = match.split()
+            word_count = len(words)
+            word_counts.append(word_count)
+            
+            if word_count >= 5:
+                results['long_parentheses'] += 1
+                if len(long_examples) < 5:
+                    long_examples.append({
+                        'text': match[:100] + '...' if len(match) > 100 else match,
+                        'word_count': word_count
+                    })
+            else:
+                results['short_parentheses'] += 1
+        
+        results['long_examples'] = long_examples
+        
+        if results['total_parentheses'] > 0:
+            results['long_percentage'] = (results['long_parentheses'] / results['total_parentheses']) * 100
+            results['average_words_per_parenthesis'] = float(np.mean(word_counts))
+        
+        # Статистика
+        if word_counts:
+            results['statistics'] = {
+                'mean_words': float(np.mean(word_counts)),
+                'median_words': float(np.median(word_counts)),
+                'max_words': float(np.max(word_counts)),
+                'min_words': float(np.min(word_counts)),
+                'std_words': float(np.std(word_counts)),
+                'q25_words': float(np.percentile(word_counts, 25)),
+                'q75_words': float(np.percentile(word_counts, 75)),
+                'long_percentage': results['long_percentage']
+            }
+        
+        # Оценка риска: ЧЕЛОВЕК использует длинные пояснения в скобках
+        # Поэтому высокий процент длинных скобок -> НИЗКИЙ риск ИИ
+        risk_score = 0
+        confidence = 0.5
+        
+        if results['long_percentage'] > 30:
+            # Много длинных пояснений - признак человека
+            risk_score = 0
+            confidence = 0.8
+            results['risk_level'] = 'low'
+        elif results['long_percentage'] > 15:
+            # Умеренное количество
+            risk_score = 1
+            confidence = 0.6
+            results['risk_level'] = 'low'
+        elif results['long_percentage'] > 5:
+            # Мало длинных пояснений
+            risk_score = 2
+            confidence = 0.7
+            results['risk_level'] = 'medium'
+        else:
+            # Почти нет длинных пояснений - подозрительно (ИИ избегает сложных пояснений)
+            risk_score = 3
+            confidence = 0.8
+            results['risk_level'] = 'high'
+        
+        results['risk_score'] = risk_score
+        results['confidence'] = confidence
+        
+        return results
+
+
+class PunctuationAnalyzer:
+    """Анализ пунктуации ! ? ; (НОВЫЙ МОДУЛЬ)"""
+    
+    def __init__(self):
+        pass
+    
+    def analyze(self, text: str, sentences: List[str]) -> Dict:
+        """
+        Анализирует использование ! ? ;
+        Редкие знаки и сложные конструкции с ; - признак человека
+        """
+        results = {
+            'exclamation_count': 0,
+            'exclamation_per_1000': 0,
+            'question_count': 0,
+            'question_per_1000': 0,
+            'semicolon_count': 0,
+            'semicolon_per_1000': 0,
+            'semicolon_contexts': [],
+            'complex_semicolon_structures': 0,  # когда после ; идет короткое предложение
+            'risk_score': 0,
+            'confidence': 0,
+            'risk_level': 'none',
+            'statistics': {}
+        }
+        
+        if not text:
+            return results
+        
+        words = text.split()
+        total_words = len(words)
+        
+        # Подсчет знаков
+        results['exclamation_count'] = text.count('!')
+        results['question_count'] = text.count('?')
+        results['semicolon_count'] = text.count(';')
+        
+        # Нормировка на 1000 слов
+        if total_words > 0:
+            results['exclamation_per_1000'] = (results['exclamation_count'] * 1000) / total_words
+            results['question_per_1000'] = (results['question_count'] * 1000) / total_words
+            results['semicolon_per_1000'] = (results['semicolon_count'] * 1000) / total_words
+        
+        # Анализ контекста для ;
+        semicolon_pattern = r'([^;]+);\s*([^;]+)'
+        semicolon_matches = re.findall(semicolon_pattern, text)
+        
+        semicolon_lengths = []
+        for before, after in semicolon_matches[:10]:
+            before_words = len(before.split())
+            after_words = len(after.split())
+            semicolon_lengths.append({
+                'before': before_words,
+                'after': after_words
+            })
+            
+            # Если после ; идет очень короткое предложение (<=5 слов) - это сложная структура
+            if after_words <= 5 and before_words > 10:
+                results['complex_semicolon_structures'] += 1
+                if len(results['semicolon_contexts']) < 5:
+                    results['semicolon_contexts'].append({
+                        'before': before[:50] + '...' if len(before) > 50 else before,
+                        'after': after[:50] + '...' if len(after) > 50 else after,
+                        'before_words': before_words,
+                        'after_words': after_words
+                    })
+        
+        # Статистика
+        results['statistics'] = {
+            'exclamation_per_1000': results['exclamation_per_1000'],
+            'question_per_1000': results['question_per_1000'],
+            'semicolon_per_1000': results['semicolon_per_1000'],
+            'complex_semicolon_structures': results['complex_semicolon_structures'],
+            'total_punctuation_marks': results['exclamation_count'] + results['question_count'] + results['semicolon_count']
+        }
+        
+        if semicolon_lengths:
+            after_lengths = [item['after'] for item in semicolon_lengths]
+            results['statistics']['semicolon_after_mean'] = float(np.mean(after_lengths))
+            results['statistics']['semicolon_after_median'] = float(np.median(after_lengths))
+        
+        # Оценка риска: наличие сложных знаков - признак человека
+        risk_score = 0
+        confidence = 0.5
+        
+        # Если есть сложные структуры с ; - признак человека
+        if results['complex_semicolon_structures'] > 3:
+            risk_score = 0  # Низкий риск
+            confidence = 0.8
+            results['risk_level'] = 'low'
+        elif results['complex_semicolon_structures'] > 0:
+            risk_score = 1
+            confidence = 0.6
+            results['risk_level'] = 'low'
+        
+        # Если есть восклицательные знаки (редко в науке) - признак человека
+        if results['exclamation_count'] > 0:
+            risk_score = max(0, risk_score - 1)  # Уменьшаем риск
+            confidence = min(confidence + 0.1, 1.0)
+            if results['risk_level'] == 'none' or results['risk_level'] == 'high':
+                results['risk_level'] = 'medium'
+        
+        # Если есть вопросительные знаки (вопросы в тексте) - признак человека
+        if results['question_count'] > 5:
+            risk_score = max(0, risk_score - 1)
+            confidence = min(confidence + 0.1, 1.0)
+        
+        # Если вообще нет пунктуации кроме точек - подозрительно
+        if (results['exclamation_count'] == 0 and results['question_count'] == 0 and 
+            results['semicolon_count'] == 0 and total_words > 1000):
+            risk_score = 3
+            confidence = 0.7
+            results['risk_level'] = 'high'
+        
+        results['risk_score'] = risk_score
+        results['confidence'] = confidence
+        
+        return results
+
+
+class ApostropheAnalyzer:
+    """Анализ апострофов 's (НОВЫЙ МОДУЛЬ)"""
+    
+    def __init__(self):
+        pass
+    
+    def analyze(self, text: str) -> Dict:
+        """
+        Анализирует использование апострофов (Parkinson's, pathway's)
+        Частота использования - признак человеческого текста
+        """
+        results = {
+            'apostrophe_count': 0,
+            'apostrophe_per_1000': 0,
+            'apostrophe_examples': [],
+            'unique_apostrophe_words': set(),
+            'risk_score': 0,
+            'confidence': 0,
+            'risk_level': 'none',
+            'statistics': {}
+        }
+        
+        if not text:
+            return results
+        
+        words = text.split()
+        total_words = len(words)
+        
+        # Паттерн для поиска слово + 's
+        pattern = r"\b(\w+)'s\b"
+        matches = re.findall(pattern, text)
+        
+        results['apostrophe_count'] = len(matches)
+        results['unique_apostrophe_words'] = set(matches)
+        
+        # Нормировка на 1000 слов
+        if total_words > 0:
+            results['apostrophe_per_1000'] = (results['apostrophe_count'] * 1000) / total_words
+        
+        # Примеры
+        examples = list(set(matches))[:10]  # Уникальные примеры
+        results['apostrophe_examples'] = [f"{word}'s" for word in examples]
+        
+        # Статистика
+        results['statistics'] = {
+            'apostrophe_per_1000': results['apostrophe_per_1000'],
+            'unique_apostrophe_words': len(results['unique_apostrophe_words']),
+            'total_apostrophes': results['apostrophe_count'],
+            'avg_apostrophe_per_unique': results['apostrophe_count'] / len(results['unique_apostrophe_words']) if len(results['unique_apostrophe_words']) > 0 else 0
+        }
+        
+        # Оценка риска: наличие апострофов - признак человеческого текста
+        risk_score = 3  # Высокий риск по умолчанию
+        confidence = 0.5
+        
+        if results['apostrophe_per_1000'] > 2:
+            # Много апострофов - явный признак человека
+            risk_score = 0
+            confidence = 0.9
+            results['risk_level'] = 'low'
+        elif results['apostrophe_per_1000'] > 1:
+            # Умеренное количество
+            risk_score = 1
+            confidence = 0.7
+            results['risk_level'] = 'low'
+        elif results['apostrophe_per_1000'] > 0.5:
+            # Мало апострофов
+            risk_score = 2
+            confidence = 0.6
+            results['risk_level'] = 'medium'
+        elif results['apostrophe_count'] > 0:
+            # Очень мало апострофов
+            risk_score = 2
+            confidence = 0.5
+            results['risk_level'] = 'medium'
+        else:
+            # Нет апострофов - подозрительно для научной статьи
+            risk_score = 3
+            confidence = 0.7
+            results['risk_level'] = 'high'
+        
+        results['risk_score'] = risk_score
+        results['confidence'] = confidence
+        
+        return results
+
+
+class EnumerationAnalyzer:
+    """Анализ строгих перечислений из трех элементов (НОВЫЙ МОДУЛЬ)"""
+    
+    def __init__(self):
+        pass
+    
+    def analyze(self, text: str) -> Dict:
+        """
+        Анализирует строгие перечисления вида: X, Y, and Z
+        Такие конструкции характерны для человеческого письма
+        """
+        results = {
+            'enumeration_count': 0,
+            'enumeration_per_1000': 0,
+            'enumeration_examples': [],
+            'enumeration_contexts': [],
+            'risk_score': 0,
+            'confidence': 0,
+            'risk_level': 'none',
+            'statistics': {}
+        }
+        
+        if not text:
+            return results
+        
+        words = text.split()
+        total_words = len(words)
+        
+        # Паттерн для поиска: слово, слово, and слово
+        # Упрощенный паттерн для демонстрации
+        pattern = r'\b(\w+),\s+(\w+),\s+and\s+(\w+)\b'
+        matches = re.findall(pattern, text)
+        
+        # Также ищем с запятыми внутри (для фраз из нескольких слов)
+        pattern2 = r'([^,]+),\s+([^,]+),\s+and\s+([^\.]+)'
+        matches2 = re.findall(pattern2, text)
+        
+        results['enumeration_count'] = len(matches) + len(matches2)
+        
+        # Нормировка на 1000 слов
+        if total_words > 0:
+            results['enumeration_per_1000'] = (results['enumeration_count'] * 1000) / total_words
+        
+        # Примеры
+        for match in matches[:5]:
+            example = f"{match[0]}, {match[1]}, and {match[2]}"
+            results['enumeration_examples'].append(example)
+            results['enumeration_contexts'].append({
+                'items': list(match),
+                'type': 'simple'
+            })
+        
+        for match in matches2[:5]:
+            example = f"{match[0].strip()}, {match[1].strip()}, and {match[2].strip()}"
+            if len(example) < 100:
+                results['enumeration_examples'].append(example)
+                results['enumeration_contexts'].append({
+                    'items': [m.strip() for m in match],
+                    'type': 'complex'
+                })
+        
+        # Статистика
+        results['statistics'] = {
+            'enumeration_per_1000': results['enumeration_per_1000'],
+            'total_enumerations': results['enumeration_count'],
+            'unique_enumerations': len(results['enumeration_examples'])
+        }
+        
+        # Оценка риска: наличие строгих перечислений - признак человека
+        risk_score = 3
+        confidence = 0.5
+        
+        if results['enumeration_per_1000'] > 0.5:
+            # Много перечислений - признак человека
+            risk_score = 0
+            confidence = 0.8
+            results['risk_level'] = 'low'
+        elif results['enumeration_per_1000'] > 0.2:
+            # Умеренное количество
+            risk_score = 1
+            confidence = 0.6
+            results['risk_level'] = 'low'
+        elif results['enumeration_count'] > 0:
+            # Мало перечислений
+            risk_score = 2
+            confidence = 0.5
+            results['risk_level'] = 'medium'
+        else:
+            # Нет перечислений - подозрительно
+            risk_score = 3
+            confidence = 0.7
+            results['risk_level'] = 'high'
+        
+        results['risk_score'] = risk_score
+        results['confidence'] = confidence
         
         return results
 
@@ -1106,17 +1922,21 @@ class IntegratedRiskScorer:
     """Интегральная оценка риска на основе всех модулей"""
     
     def __init__(self):
-        # Веса модулей (сумма = 100)
+        # Веса модулей (обновлено с учетом новых модулей)
         self.weights = {
-            'unicode': 0.08,      # 8% - почти исчез
-            'dashes': 0.10,        # 10% - встречается
-            'phrases': 0.15,       # 15% - упали, но не до нуля
-            'burstiness': 0.12,    # 12% - остается полезным
-            'grammar': 0.15,       # 15% - грамматика важна
-            'hedging': 0.20,       # 20% - стойкий маркер
-            'paragraph': 0.20,     # 20% - абзацный анализ
-            'perplexity': 0.0,     # 0% - отключено
-            'semantic': 0.0        # 0% - отключено
+            'unicode': 0.05,        # 5% - уменьшили
+            'dashes': 0.05,          # 5% - уменьшили
+            'phrases': 0.10,         # 10% - умеренно
+            'burstiness': 0.08,      # 8% - умеренно
+            'grammar': 0.10,         # 10% - грамматика
+            'hedging': 0.15,         # 15% - ключевой
+            'paragraph': 0.10,       # 10% - абзацы
+            'perplexity': 0.07,      # 7% - перплексия
+            'semantic': 0.07,        # 7% - семантика
+            'parenthesis': 0.07,     # 7% - скобки (НОВЫЙ)
+            'punctuation': 0.06,      # 6% - пунктуация (НОВЫЙ)
+            'apostrophe': 0.05,       # 5% - апострофы (НОВЫЙ)
+            'enumeration': 0.05       # 5% - перечисления (НОВЫЙ)
         }
         
         # Нормируем веса
@@ -1132,6 +1952,12 @@ class IntegratedRiskScorer:
         weighted_score = 0
         module_scores = []
         
+        # Для определения MVP (лучшего/худшего модуля)
+        max_contribution = -1
+        max_module = None
+        min_contribution = 1
+        min_module = None
+        
         for module, weight in self.weights.items():
             if module in results and results[module]:
                 data = results[module]
@@ -1142,18 +1968,29 @@ class IntegratedRiskScorer:
                     # Учитываем уверенность модуля
                     confidence = data.get('confidence', 0.5)
                     
+                    contribution = norm_score * weight * 100
+                    
                     module_score = {
                         'module': module,
                         'raw_score': data['risk_score'],
                         'norm_score': norm_score,
                         'weight': weight,
                         'confidence': confidence,
-                        'contribution': norm_score * weight * 100
+                        'contribution': contribution
                     }
                     
                     module_scores.append(module_score)
                     weighted_score += norm_score * weight
                     total_confidence += confidence * weight
+                    
+                    # Отслеживаем максимумы и минимумы
+                    if contribution > max_contribution:
+                        max_contribution = contribution
+                        max_module = module
+                    
+                    if contribution < min_contribution and norm_score > 0:
+                        min_contribution = contribution
+                        min_module = module
         
         # Итоговая оценка 0-100
         final_score = weighted_score * 100
@@ -1164,26 +2001,87 @@ class IntegratedRiskScorer:
         
         # Определяем уровень риска
         risk_level = 'unknown'
-        if final_score < 25:
+        if final_score < 20:
             risk_level = 'low'
-        elif final_score < 50:
+        elif final_score < 40:
             risk_level = 'medium-low'
-        elif final_score < 75:
+        elif final_score < 60:
+            risk_level = 'medium'
+        elif final_score < 80:
             risk_level = 'medium-high'
         else:
             risk_level = 'high'
+        
+        # Определяем медали для модулей
+        medal_mapping = {}
+        if module_scores:
+            sorted_scores = sorted(module_scores, key=lambda x: x['contribution'], reverse=True)
+            if len(sorted_scores) > 0:
+                medal_mapping[sorted_scores[0]['module']] = 'gold'
+            if len(sorted_scores) > 1:
+                medal_mapping[sorted_scores[1]['module']] = 'silver'
+            if len(sorted_scores) > 2:
+                medal_mapping[sorted_scores[2]['module']] = 'bronze'
         
         return {
             'final_score': final_score,
             'risk_level': risk_level,
             'weighted_score': weighted_score,
             'total_confidence': total_confidence,
-            'module_scores': module_scores
+            'module_scores': module_scores,
+            'mvp_module': max_module,
+            'mvp_contribution': max_contribution,
+            'medal_mapping': medal_mapping
         }
 
 
 class DocumentProcessor:
     """Обработчик загруженных документов"""
+    
+    @staticmethod
+    def cut_at_references(text: str) -> str:
+        """
+        Обрезает текст до раздела References/Bibliography
+        НОВЫЙ МЕТОД
+        """
+        if not text:
+            return text
+        
+        # Список маркеров начала списка литературы
+        reference_markers = [
+            r'\nreferences\s*\n',
+            r'\nreferences\s*$',
+            r'\nbibliography\s*\n',
+            r'\nbibliography\s*$',
+            r'\nliterature cited\s*\n',
+            r'\nliterature cited\s*$',
+            r'\nworks cited\s*\n',
+            r'\nworks cited\s*$',
+            r'\n cited references\s*\n',
+            r'\n cited references\s*$',
+            r'\nreference list\s*\n',
+            r'\nreference list\s*$',
+            r'\nreferences and notes\s*\n',
+            r'\nreferences and notes\s*$',
+            r'\n☐ references\s*\n',  # Специальные символы
+            r'\nREFERENCES\s*\n',
+            r'\nBIBLIOGRAPHY\s*\n',
+            r'\nLITERATURE CITED\s*\n'
+        ]
+        
+        # Ищем первый маркер
+        min_pos = len(text)
+        for marker in reference_markers:
+            match = re.search(marker, text, re.IGNORECASE)
+            if match:
+                pos = match.start()
+                if pos < min_pos:
+                    min_pos = pos
+        
+        if min_pos < len(text):
+            return text[:min_pos].strip()
+        
+        return text.strip()
     
     @staticmethod
     def read_docx(file) -> Optional[str]:
@@ -1204,7 +2102,9 @@ class DocumentProcessor:
                             if para.text:
                                 full_text.append(para.text)
             
-            return '\n'.join(full_text)
+            text = '\n'.join(full_text)
+            # Обрезаем до References
+            return DocumentProcessor.cut_at_references(text)
         except Exception as e:
             st.error(f"Error reading DOCX: {e}")
             return None
@@ -1224,7 +2124,9 @@ class DocumentProcessor:
                                        capture_output=True, text=True, timeout=10)
                 os.unlink(tmp_path)
                 if result.returncode == 0 and result.stdout:
-                    return result.stdout
+                    text = result.stdout
+                    # Обрезаем до References
+                    return DocumentProcessor.cut_at_references(text)
             except:
                 pass
             
@@ -1235,7 +2137,7 @@ class DocumentProcessor:
             file.seek(0)
             content = file.getvalue().decode('utf-8', errors='ignore')
             if len(content) > 100:  # Хотя бы что-то получили
-                return content
+                return DocumentProcessor.cut_at_references(content)
             
             return None
         except Exception as e:
@@ -1265,19 +2167,31 @@ class DocumentProcessor:
 # ============================================================================
 
 def main():
-    st.markdown('<h1 class="main-header">🔬 AI Detector for Scientific Papers</h1>', 
+    st.markdown('<h1 class="main-header">🏆 ЧЕМПИОНАТ AI-ДЕТЕКЦИИ 2026</h1>', 
                 unsafe_allow_html=True)
     
     st.markdown("""
-    <div class="info-box">
-    Загрузите научную статью в формате .docx или .doc для многоуровневого анализа 
-    на предмет использования искусственного интеллекта при написании.
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <span style="background: linear-gradient(135deg, #1E88E5, #ffd700); 
+                     padding: 0.5rem 2rem; 
+                     border-radius: 50px;
+                     color: white;
+                     font-weight: bold;
+                     text-transform: uppercase;
+                     box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+            ⚡ Прямая трансляция анализа ⚡
+        </span>
     </div>
     """, unsafe_allow_html=True)
     
-    # Боковая панель с настройками
+    # Боковая панель с настройками (УБРАНЫ ЧЕКБОКСЫ МОДУЛЕЙ)
     with st.sidebar:
-        st.header("⚙️ Настройки анализа")
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 1rem;">
+            <span style="font-size: 2rem;">🏆</span>
+            <h3>СЕЗОН 2026</h3>
+        </div>
+        """, unsafe_allow_html=True)
         
         analysis_depth = st.select_slider(
             "Глубина анализа",
@@ -1286,42 +2200,64 @@ def main():
         )
         
         st.markdown("---")
-        st.markdown("**Активные модули:**")
         
-        modules = {
-            'unicode': st.checkbox("Unicode-артефакты + нелатинские символы", value=True),
-            'dashes': st.checkbox("Множественные тире", value=True),
-            'phrases': st.checkbox("ИИ-фразы (обновлено 2025-2026)", value=True),
-            'burstiness': st.checkbox("Burstiness", value=True),
-            'grammar': st.checkbox("Грамматика + модальность", value=True),
-            'hedging': st.checkbox("Хеджинг (ключевой маркер)", value=True),
-            'paragraph': st.checkbox("Абзацный анализ (если доступно)", value=True),
-            'perplexity': st.checkbox("Perplexity (если доступно)", value=False),
-            'semantic': st.checkbox("Семантика (если доступно)", value=False)
-        }
+        # Информация о модулях (все активны)
+        st.markdown("""
+        ### 📋 СОСТАВ КОМАНДЫ
+        
+        **Основной состав:**
+        - ⚽ Хеджинг (капитан)
+        - ⚽ ИИ-фразы
+        - ⚽ Burstiness
+        - ⚽ Грамматика
+        - ⚽ Абзацный анализ
+        
+        **Новые игроки 2026:**
+        - 🆕 Длинные скобки
+        - 🆕 Пунктуация (! ? ;)
+        - 🆕 Апострофы ('s)
+        - 🆕 Перечисления (X, Y, and Z)
+        
+        **Спецприглашения:**
+        - 🔬 Перплексия
+        - 🔬 Семантика
+        """)
         
         st.markdown("---")
+        
+        # Турнирная таблица весов (обновленная)
+        st.markdown("""
+        ### ⚖️ ВЕСА МОДУЛЕЙ 2026
+        
+        | Модуль | Вес |
+        |--------|-----|
+        | Хеджинг | 15% |
+        | ИИ-фразы | 10% |
+        | Грамматика | 10% |
+        | Абзацы | 10% |
+        | Burstiness | 8% |
+        | Перплексия | 7% |
+        | Семантика | 7% |
+        | Скобки | 7% |
+        | Пунктуация | 6% |
+        | Тире | 5% |
+        | Unicode | 5% |
+        | Апострофы | 5% |
+        | Перечисления | 5% |
+        """)
+        
+        st.markdown("---")
+        
         st.info(
-            "Примечание: Полный семантический и абзацный анализ требует дополнительных "
-            "библиотек и может быть недоступен в облачной версии."
+            "🏆 Все модули в активном составе!\n\n"
+            "Анализируется полный текст до раздела References."
         )
-        
-        st.markdown("---")
-        st.markdown("**Интегральная оценка**")
-        st.markdown("Используются веса модулей 2025-2026:")
-        st.markdown("- Хеджинг: 20%")
-        st.markdown("- Абзацный анализ: 20%")
-        st.markdown("- Грамматика: 15%")
-        st.markdown("- ИИ-фразы: 15%")
-        st.markdown("- Burstiness: 12%")
-        st.markdown("- Тире: 10%")
-        st.markdown("- Unicode: 8%")
     
     # Загрузка файла
     uploaded_file = st.file_uploader(
-        "Выберите файл статьи", 
+        "📄 Загрузите файл статьи (поддерживаются .docx и .doc)", 
         type=['docx', 'doc'],
-        help="Поддерживаются форматы .docx и .doc"
+        help="Анализируется весь текст до раздела References"
     )
     
     if uploaded_file is not None:
@@ -1334,9 +2270,14 @@ def main():
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.write("📄 Информация о файле:", file_details)
+            st.markdown(f"""
+            <div class="stat-box">
+                <span class="stat-label">ЗАГРУЖЕН ФАЙЛ</span>
+                <span class="stat-value">{uploaded_file.name}</span>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
-            if st.button("🔄 Начать анализ"):
+            if st.button("▶️ НАЧАТЬ МАТЧ"):
                 st.rerun()
         
         # Прогресс
@@ -1367,15 +2308,16 @@ def main():
             progress_bar.progress(15)
             sentences = DocumentProcessor.split_sentences_simple(text)
             
-            st.success(f"✅ Текст загружен: {len(text)} символов, {len(sentences)} предложений")
+            st.success(f"✅ Текст загружен: {len(text)} символов, {len(sentences)} предложений (обрезано до References)")
             
             # Создаем вкладки для результатов
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
-                "📊 Общий отчет", 
-                "🔍 Артефакты", 
-                "📈 Статистика",
-                "📊 Интегральная оценка",
-                "📝 Текст"
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                "🏆 ТАБЛО", 
+                "⚽ СОСТАВ", 
+                "📊 СТАТИСТИКА",
+                "🎯 ИНТЕГРАЛ",
+                "🆕 НОВИЧКИ 2026",
+                "📝 ТЕКСТ"
             ])
             
             # Хранилище результатов
@@ -1383,98 +2325,103 @@ def main():
             risk_scores = []
             
             # =================================================================
+            # ВСЕ МОДУЛИ АКТИВИРОВАНЫ (УБРАНЫ ЧЕКБОКСЫ)
+            # =================================================================
+            
             # Модуль 1: Unicode-артефакты
-            # =================================================================
-            if modules['unicode']:
-                with st.spinner("Анализ Unicode-артефактов и нелатинских символов..."):
-                    detector = UnicodeArtifactDetector()
-                    results['unicode'] = detector.analyze(text)
-                    risk_scores.append(results['unicode']['risk_score'])
-                progress_bar.progress(25)
+            with st.spinner("Анализ Unicode-артефактов..."):
+                detector = UnicodeArtifactDetector()
+                results['unicode'] = detector.analyze(text)
+                risk_scores.append(results['unicode']['risk_score'])
+            progress_bar.progress(10)
             
-            # =================================================================
             # Модуль 2: Множественные тире
-            # =================================================================
-            if modules['dashes']:
-                with st.spinner("Анализ множественных тире..."):
-                    detector = DashAnalyzer()
-                    results['dashes'] = detector.analyze(sentences)
-                    risk_scores.append(results['dashes']['risk_score'])
-                progress_bar.progress(35)
+            with st.spinner("Анализ множественных тире..."):
+                detector = DashAnalyzer()
+                results['dashes'] = detector.analyze(sentences)
+                risk_scores.append(results['dashes']['risk_score'])
+            progress_bar.progress(15)
             
-            # =================================================================
             # Модуль 3: ИИ-фразы
-            # =================================================================
-            if modules['phrases']:
-                with st.spinner("Поиск ИИ-фраз (обновленный список 2025-2026)..."):
-                    detector = AIPhraseDetector()
-                    results['phrases'] = detector.analyze(text, sentences)
-                    risk_scores.append(results['phrases']['risk_score'])
-                progress_bar.progress(45)
+            with st.spinner("Поиск ИИ-фраз (обновленный список 2025-2026)..."):
+                detector = AIPhraseDetector()
+                results['phrases'] = detector.analyze(text, sentences)
+                risk_scores.append(results['phrases']['risk_score'])
+            progress_bar.progress(20)
             
-            # =================================================================
             # Модуль 4: Burstiness
-            # =================================================================
-            if modules['burstiness']:
-                with st.spinner("Анализ вариативности предложений..."):
-                    detector = BurstinessAnalyzer()
-                    results['burstiness'] = detector.analyze(sentences)
-                    if 'error' not in results['burstiness']:
-                        risk_scores.append(results['burstiness']['risk_score'])
-                progress_bar.progress(55)
+            with st.spinner("Анализ вариативности предложений..."):
+                detector = BurstinessAnalyzer()
+                results['burstiness'] = detector.analyze(sentences)
+                if 'error' not in results['burstiness']:
+                    risk_scores.append(results['burstiness']['risk_score'])
+            progress_bar.progress(25)
             
-            # =================================================================
             # Модуль 5: Грамматика
-            # =================================================================
-            if modules['grammar']:
-                with st.spinner("Грамматический анализ (модальность, номинализации)..."):
-                    detector = GrammarAnalyzer()
-                    results['grammar'] = detector.analyze(text)
-                    risk_scores.append(results['grammar']['risk_score'])
-                progress_bar.progress(65)
+            with st.spinner("Грамматический анализ..."):
+                detector = GrammarAnalyzer()
+                results['grammar'] = detector.analyze(text)
+                risk_scores.append(results['grammar']['risk_score'])
+            progress_bar.progress(30)
             
-            # =================================================================
             # Модуль 6: Хеджинг
-            # =================================================================
-            if modules['hedging']:
-                with st.spinner("Анализ хеджинга (ключевой маркер)..."):
-                    detector = HedgingAnalyzer()
-                    results['hedging'] = detector.analyze(text)
-                    risk_scores.append(results['hedging']['risk_score'])
-                progress_bar.progress(75)
+            with st.spinner("Анализ хеджинга (капитан команды)..."):
+                detector = HedgingAnalyzer()
+                results['hedging'] = detector.analyze(text)
+                risk_scores.append(results['hedging']['risk_score'])
+            progress_bar.progress(35)
             
-            # =================================================================
             # Модуль 7: Абзацный анализ
-            # =================================================================
-            if modules['paragraph']:
-                with st.spinner("Анализ на уровне абзацев..."):
-                    detector = ParagraphAnalyzer()
-                    results['paragraph'] = detector.analyze(text, sentences)
-                    if 'error' not in results['paragraph']:
-                        risk_scores.append(results['paragraph']['risk_score'])
-                progress_bar.progress(85)
+            with st.spinner("Анализ на уровне абзацев..."):
+                detector = ParagraphAnalyzer()
+                results['paragraph'] = detector.analyze(text, sentences)
+                if 'error' not in results['paragraph']:
+                    risk_scores.append(results['paragraph']['risk_score'])
+            progress_bar.progress(40)
             
-            # =================================================================
-            # Модуль 8: Perplexity
-            # =================================================================
-            if modules['perplexity']:
-                with st.spinner("Анализ перплексии..."):
-                    detector = PerplexityAnalyzer()
-                    results['perplexity'] = detector.analyze(text)
-                    if 'error' not in results['perplexity']:
-                        risk_scores.append(results['perplexity']['risk_score'])
-                progress_bar.progress(90)
+            # Модуль 8: Perplexity (АКТИВИРОВАН)
+            with st.spinner("Анализ перплексии..."):
+                detector = PerplexityAnalyzer()
+                results['perplexity'] = detector.analyze(text)
+                if 'error' not in results['perplexity'] and results['perplexity'].get('available', False):
+                    risk_scores.append(results['perplexity']['risk_score'])
+            progress_bar.progress(45)
             
-            # =================================================================
-            # Модуль 9: Семантика
-            # =================================================================
-            if modules['semantic']:
-                with st.spinner("Семантический анализ..."):
-                    detector = SemanticAnalyzer()
-                    results['semantic'] = detector.analyze(sentences)
-                    if 'error' not in results['semantic']:
-                        risk_scores.append(results['semantic']['risk_score'])
-                progress_bar.progress(95)
+            # Модуль 9: Семантика (АКТИВИРОВАН)
+            with st.spinner("Семантический анализ..."):
+                detector = SemanticAnalyzer()
+                results['semantic'] = detector.analyze(sentences)
+                if 'error' not in results['semantic'] and results['semantic'].get('available', False):
+                    risk_scores.append(results['semantic']['risk_score'])
+            progress_bar.progress(50)
+            
+            # Модуль 10: Parenthesis (НОВЫЙ)
+            with st.spinner("Анализ длинных пояснений в скобках..."):
+                detector = ParenthesisAnalyzer()
+                results['parenthesis'] = detector.analyze(text)
+                risk_scores.append(results['parenthesis']['risk_score'])
+            progress_bar.progress(55)
+            
+            # Модуль 11: Punctuation (НОВЫЙ)
+            with st.spinner("Анализ пунктуации ! ? ;..."):
+                detector = PunctuationAnalyzer()
+                results['punctuation'] = detector.analyze(text, sentences)
+                risk_scores.append(results['punctuation']['risk_score'])
+            progress_bar.progress(60)
+            
+            # Модуль 12: Apostrophe (НОВЫЙ)
+            with st.spinner("Анализ апострофов 's..."):
+                detector = ApostropheAnalyzer()
+                results['apostrophe'] = detector.analyze(text)
+                risk_scores.append(results['apostrophe']['risk_score'])
+            progress_bar.progress(65)
+            
+            # Модуль 13: Enumeration (НОВЫЙ)
+            with st.spinner("Анализ перечислений X, Y, and Z..."):
+                detector = EnumerationAnalyzer()
+                results['enumeration'] = detector.analyze(text)
+                risk_scores.append(results['enumeration']['risk_score'])
+            progress_bar.progress(70)
             
             # Интегральная оценка
             scorer = IntegratedRiskScorer()
@@ -1482,306 +2429,310 @@ def main():
             
             # Завершение
             progress_bar.progress(100)
-            status_text.text("✅ Анализ завершен!")
+            status_text.text("✅ МАТЧ ЗАВЕРШЕН!")
             
             # =================================================================
-            # Вкладка 1: Общий отчет
+            # Вкладка 1: ТАБЛО (Спортивный дизайн)
             # =================================================================
             with tab1:
-                st.header("📊 Общая оценка")
-                
-                # Интегральный риск
-                if risk_scores:
-                    avg_risk = float(np.mean(risk_scores))
-                    max_risk = float(np.max(risk_scores))
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        if avg_risk < 1:
-                            st.markdown('<p class="success-text">● Низкая вероятность ИИ</p>', 
-                                      unsafe_allow_html=True)
-                        elif avg_risk < 2:
-                            st.markdown('<p class="warning-text">● Средняя вероятность ИИ</p>', 
-                                      unsafe_allow_html=True)
-                        else:
-                            st.markdown('<p class="danger-text">● Высокая вероятность ИИ</p>', 
-                                      unsafe_allow_html=True)
-                        st.metric("Средний риск (0-3)", f"{avg_risk:.2f}")
-                    
-                    with col2:
-                        st.metric("Максимальный риск", f"{max_risk:.2f}")
-                    
-                    with col3:
-                        st.metric("Активных модулей", len(risk_scores))
-                    
-                    with col4:
-                        st.metric("Интегральная оценка", f"{integrated_results['final_score']:.1f}/100")
-                    
-                    # Сводная таблица
-                    st.subheader("📋 Сводка по метрикам")
-                    summary_data = []
-                    for key, data in results.items():
-                        if isinstance(data, dict):
-                            risk_level = data.get('risk_level', 'unknown')
-                            risk_score = data.get('risk_score', 0)
-                            confidence = data.get('confidence', 0.5)
-                            
-                            # Получаем основное значение
-                            main_value = 'N/A'
-                            if 'density_per_10k' in data:
-                                main_value = f"{data['density_per_10k']:.2f}/10k"
-                            elif 'percentage_heavy' in data:
-                                main_value = f"{data['percentage_heavy']:.1f}%"
-                            elif 'cv' in data:
-                                main_value = f"{data['cv']:.3f}"
-                            elif 'hedging_per_1000' in data:
-                                main_value = f"{data['hedging_per_1000']:.1f}/1000"
-                            elif 'passive_percentage' in data:
-                                main_value = f"{data['passive_percentage']:.1f}%"
-                            elif 'non_latin_per_1000' in data:
-                                main_value = f"{data['non_latin_per_1000']:.2f}/1000"
-                            
-                            summary_data.append({
-                                'Метрика': key.capitalize(),
-                                'Уровень риска': risk_level.upper(),
-                                'Оценка': f"{risk_score}/3",
-                                'Уверенность': f"{confidence:.0%}",
-                                'Значение': main_value
-                            })
-                    
-                    if summary_data:
-                        df = pd.DataFrame(summary_data)
-                        
-                        # Цветовая кодировка
-                        def color_risk(val):
-                            if 'HIGH' in val:
-                                return 'background-color: #ffcccc'
-                            elif 'MEDIUM' in val:
-                                return 'background-color: #fff3cd'
-                            elif 'LOW' in val:
-                                return 'background-color: #d4edda'
-                            return ''
-                        
-                        styled_df = df.style.applymap(color_risk, subset=['Уровень риска'])
-                        st.dataframe(styled_df, use_container_width=True)
-                
-                else:
-                    st.warning("Нет данных для анализа")
-            
-            # =================================================================
-            # Вкладка 2: Артефакты
-            # =================================================================
-            with tab2:
-                st.header("🔍 Артефакты форматирования")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    if 'unicode' in results:
-                        st.subheader("Unicode-артефакты и нелатинские символы")
-                        u = results['unicode']
-                        
-                        metrics_cols = st.columns(2)
-                        with metrics_cols[0]:
-                            st.metric("Плотность на 10k", f"{u['density_per_10k']:.2f}")
-                            st.metric("Надстрочные/подстрочные", u['sup_sub_count'])
-                            st.metric("Греческие символы", u['greek_count'])
-                        with metrics_cols[1]:
-                            st.metric("Fullwidth цифры", u['fullwidth_count'])
-                            st.metric("Гомоглифы", u['homoglyph_count'])
-                            st.metric("Кириллица", u['cyrillic_count'])
-                        
-                        st.metric("Нелатинские символы на 1000 слов", f"{u['non_latin_per_1000']:.2f}")
-                        
-                        if u['suspicious_chunks']:
-                            st.write("**Примеры подозрительных символов:**")
-                            for chunk in u['suspicious_chunks'][:3]:
-                                st.code(f"Символ '{chunk['char']}' в контексте: ...{chunk['context']}...")
-                
-                with col2:
-                    if 'dashes' in results:
-                        st.subheader("Множественные тире")
-                        d = results['dashes']
-                        
-                        st.metric("Предложений с ≥2 тире", len(d['sentences_with_multiple_dashes']))
-                        st.metric("Тяжелые предложения", len(d['heavy_sentences']))
-                        st.metric("Процент тяжелых", f"{d['percentage_heavy']:.2f}%")
-                        
-                        if d['examples']:
-                            st.write("**Примеры:**")
-                            for i, ex in enumerate(d['examples'][:2]):
-                                st.info(f"Пример {i+1}: {ex}")
-                
-                if 'phrases' in results:
-                    st.subheader("🤖 ИИ-фразы и штампы (обновлено 2025-2026)")
-                    p = results['phrases']
-                    
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        st.metric("Плотность переходов", f"{p['transition_density']:.2f}/1000 слов")
-                        st.metric("Метадискурс на 1000 слов", f"{p.get('metadiscourse_per_1000', 0):.2f}")
-                    
-                    with col4:
-                        st.metric("Повторяющихся фраз", len(p['repeated_phrases']))
-                        st.metric("Уверенность", f"{p.get('confidence', 0.5):.0%}")
-                    
-                    if p['top_phrases']:
-                        st.write("**Наиболее частые фразы:**")
-                        for phrase, count in p['top_phrases'][:5]:
-                            st.write(f"- '{phrase}': {count} раз(а)")
-                    
-                    if p['repeated_phrases']:
-                        st.write("**⚠️ Часто повторяющиеся фразы:**")
-                        for item in p['repeated_phrases']:
-                            st.write(f"- '{item['phrase']}' ({item['count']} раз)")
-            
-            # =================================================================
-            # Вкладка 3: Статистика
-            # =================================================================
-            with tab3:
-                st.header("📈 Статистический анализ")
-                
-                stat_cols = st.columns(2)
-                
-                with stat_cols[0]:
-                    if 'burstiness' in results and 'error' not in results['burstiness']:
-                        st.subheader("Burstiness (вариативность предложений)")
-                        b = results['burstiness']
-                        
-                        st.metric("Ср. длина предложения", f"{b['mean_length']:.1f} слов")
-                        st.metric("Станд. отклонение", f"{b['std_length']:.1f}")
-                        st.metric("Коэф. вариации", f"{b['cv']:.3f}")
-                        st.metric("Уверенность", f"{b.get('confidence', 0.5):.0%}")
-                        
-                        # Простая гистограмма с plotly
-                        if b['sentence_lengths']:
-                            fig = go.Figure(data=[go.Histogram(x=b['sentence_lengths'], nbinsx=20)])
-                            fig.update_layout(
-                                title="Распределение длины предложений",
-                                xaxis_title="Длина (слова)",
-                                yaxis_title="Частота",
-                                height=300
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                    
-                    if 'grammar' in results:
-                        st.subheader("📚 Грамматика и модальность")
-                        g = results['grammar']
-                        
-                        col_a, col_b = st.columns(2)
-                        with col_a:
-                            st.metric("Пассивных конструкций", f"{g['passive_percentage']:.1f}%")
-                            st.metric("Модальные глаголы на 1000", f"{g.get('modals_per_1000', 0):.2f}")
-                        with col_b:
-                            st.metric("Номинализаций на 1000", f"{g['nominalizations_per_1000']:.1f}")
-                            st.metric("Epistemic markers", f"{g.get('epistemic_per_1000', 0):.2f}")
-                        
-                        if g['examples']:
-                            st.write("**Пример пассива:**")
-                            for ex in g['examples'][:2]:
-                                st.info(ex)
-                
-                with stat_cols[1]:
-                    if 'hedging' in results:
-                        st.subheader("🤔 Хеджинг (ключевой маркер)")
-                        h = results['hedging']
-                        
-                        col_c, col_d = st.columns(2)
-                        with col_c:
-                            st.metric("Хеджинг на 1000 слов", f"{h['hedging_per_1000']:.2f}")
-                            st.metric("Категоричность на 1000", f"{h.get('certainty_per_1000', 0):.2f}")
-                        with col_d:
-                            st.metric("Личные местоимения на 1000", f"{h['personal_per_1000']:.2f}")
-                            st.metric("Уверенность", f"{h.get('confidence', 0.5):.0%}")
-                        
-                        # Индикатор
-                        if h['hedging_per_1000'] < 3:
-                            st.warning("⚠️ Очень низкий уровень хеджинга - сильный сигнал ИИ")
-                        elif h['hedging_per_1000'] < 5:
-                            st.info("Умеренный уровень хеджинга")
-                        else:
-                            st.success("✅ Хороший уровень хеджинга (человеческий стиль)")
-                    
-                    if 'paragraph' in results and 'error' not in results['paragraph']:
-                        st.subheader("📑 Абзацный анализ")
-                        p = results['paragraph']
-                        
-                        if 'intra_paragraph_similarity' in p:
-                            st.metric("Внутриабзацная похожесть", f"{p['intra_paragraph_similarity']:.3f}")
-                            st.metric("Межабзацная похожесть", f"{p.get('inter_paragraph_similarity', 0):.3f}")
-                            st.metric("Плавность переходов", f"{p.get('transition_smoothness', 0):.3f}")
-                            st.metric("Уверенность", f"{p.get('confidence', 0.5):.0%}")
-                            
-                            if p.get('intra_paragraph_similarity', 0) > 0.72:
-                                st.warning("⚠️ Очень высокая внутриабзацная похожесть - типично для ИИ")
-                        
-                        st.info(p.get('note', ''))
-                    
-                    if 'perplexity' in results:
-                        st.subheader("📊 Perplexity")
-                        pp = results['perplexity']
-                        if 'note' in pp:
-                            st.info(pp['note'])
-                        else:
-                            st.metric("Средняя перплексия", f"{pp.get('mean_perplexity', 0):.2f}")
-                    
-                    if 'semantic' in results:
-                        st.subheader("🔄 Семантическая близость")
-                        sm = results['semantic']
-                        if 'note' in sm:
-                            st.info(sm['note'])
-                        else:
-                            st.metric("Средняя близость", f"{sm.get('mean_similarity', 0):.3f}")
-            
-            # =================================================================
-            # Вкладка 4: Интегральная оценка
-            # =================================================================
-            with tab4:
-                st.header("📊 Интегральная оценка риска")
-                
-                # Отображаем итоговый результат
+                # Табло как на стадионе
                 final_score = integrated_results['final_score']
                 risk_level = integrated_results['risk_level']
                 
+                # Определяем цвет и текст для табло
                 if risk_level == 'low':
-                    st.markdown(f"""
-                    <div class="risk-low">
-                        <h3>🟢 Низкий риск использования ИИ ({final_score:.1f}/100)</h3>
-                        <p>Текст демонстрирует характеристики, типичные для человеческого письма:
-                        хорошая вариативность, умеренный хеджинг, естественные переходы.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    bg_color = 'linear-gradient(135deg, #1a237e, #0d47a1)'
+                    medal_emoji = '🥇'
+                    risk_text = 'НИЗКИЙ РИСК'
                 elif risk_level == 'medium-low':
-                    st.markdown(f"""
-                    <div class="risk-medium">
-                        <h3>🟡 Умеренно-низкий риск ({final_score:.1f}/100)</h3>
-                        <p>Текст имеет некоторые признаки ИИ-генерации, но в целом похож на человеческий.
-                        Рекомендуется дополнительная проверка подозрительных секций.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    bg_color = 'linear-gradient(135deg, #1a237e, #2e7d32)'
+                    medal_emoji = '🥈'
+                    risk_text = 'УМЕРЕННО-НИЗКИЙ'
+                elif risk_level == 'medium':
+                    bg_color = 'linear-gradient(135deg, #1a237e, #f9a825)'
+                    medal_emoji = '🥉'
+                    risk_text = 'СРЕДНИЙ РИСК'
                 elif risk_level == 'medium-high':
-                    st.markdown(f"""
-                    <div class="risk-medium">
-                        <h3>🟠 Умеренно-высокий риск ({final_score:.1f}/100)</h3>
-                        <p>Текст демонстрирует множественные признаки ИИ-генерации:
-                        низкий хеджинг, высокая внутриабзацная похожесть, повторяющиеся фразы.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    bg_color = 'linear-gradient(135deg, #1a237e, #f57c00)'
+                    medal_emoji = '🏅'
+                    risk_text = 'УМЕРЕННО-ВЫСОКИЙ'
                 else:
+                    bg_color = 'linear-gradient(135deg, #1a237e, #c62828)'
+                    medal_emoji = '⚠️'
+                    risk_text = 'ВЫСОКИЙ РИСК'
+                
+                st.markdown(f"""
+                <div class="scoreboard" style="background: {bg_color};">
+                    <div class="scoreboard-title">🏆 ФИНАЛЬНЫЙ СЧЕТ 🏆</div>
+                    <div class="scoreboard-number">{final_score:.1f}</div>
+                    <div class="scoreboard-label">{medal_emoji} {risk_text} {medal_emoji}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Карточки игроков (модулей) с наивысшим вкладом
+                st.markdown("### ⚡ MVP МАТЧА")
+                
+                if integrated_results['mvp_module']:
+                    mvp = integrated_results['mvp_module']
+                    mvp_score = integrated_results['mvp_contribution']
+                    
+                    # Человеческое название модуля
+                    module_names = {
+                        'hedging': 'ХЕДЖИНГ', 'phrases': 'ИИ-ФРАЗЫ', 'burstiness': 'BURSTINESS',
+                        'grammar': 'ГРАММАТИКА', 'paragraph': 'АБЗАЦЫ', 'unicode': 'UNICODE',
+                        'dashes': 'ТИРЕ', 'perplexity': 'ПЕРПЛЕКСИЯ', 'semantic': 'СЕМАНТИКА',
+                        'parenthesis': 'СКОБКИ', 'punctuation': 'ПУНКТУАЦИЯ', 
+                        'apostrophe': 'АПОСТРОФЫ', 'enumeration': 'ПЕРЕЧИСЛЕНИЯ'
+                    }
+                    
                     st.markdown(f"""
-                    <div class="risk-high">
-                        <h3>🔴 Высокий риск использования ИИ ({final_score:.1f}/100)</h3>
-                        <p>Текст с высокой вероятностью сгенерирован ИИ. Обнаружены сильные маркеры:
-                        очень низкий хеджинг, высокая однородность, характерные ИИ-фразы.</p>
+                    <div class="mvp-card">
+                        <span style="font-size: 2rem;">🏆</span><br>
+                        <span style="font-size: 1.5rem;">{module_names.get(mvp, mvp.upper())}</span><br>
+                        <span style="font-size: 3rem; font-weight: bold;">{mvp_score:.1f}%</span><br>
+                        <span>вклад в итоговый результат</span>
                     </div>
                     """, unsafe_allow_html=True)
                 
-                # Диаграмма вклада модулей
-                st.subheader("Вклад модулей в итоговую оценку")
+                # Статистика матча
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.markdown("""
+                    <div class="stat-box">
+                        <span class="stat-label">СЫГРАНО МОДУЛЕЙ</span>
+                        <span class="stat-value">{}</span>
+                    </div>
+                    """.format(len(risk_scores)), unsafe_allow_html=True)
+                
+                with col2:
+                    avg_risk = float(np.mean(risk_scores)) if risk_scores else 0
+                    st.markdown("""
+                    <div class="stat-box">
+                        <span class="stat-label">СРЕДНИЙ РИСК</span>
+                        <span class="stat-value">{:.2f}</span>
+                    </div>
+                    """.format(avg_risk), unsafe_allow_html=True)
+                
+                with col3:
+                    max_risk = float(np.max(risk_scores)) if risk_scores else 0
+                    st.markdown("""
+                    <div class="stat-box">
+                        <span class="stat-label">МАКСИМАЛЬНЫЙ</span>
+                        <span class="stat-value">{:.2f}</span>
+                    </div>
+                    """.format(max_risk), unsafe_allow_html=True)
+                
+                with col4:
+                    confidence = integrated_results['total_confidence'] * 100
+                    st.markdown("""
+                    <div class="stat-box">
+                        <span class="stat-label">УВЕРЕННОСТЬ</span>
+                        <span class="stat-value">{:.0f}%</span>
+                    </div>
+                    """.format(confidence), unsafe_allow_html=True)
+            
+            # =================================================================
+            # Вкладка 2: СОСТАВ (карточки игроков)
+            # =================================================================
+            with tab2:
+                st.header("⚽ СОСТАВ КОМАНДЫ 2026")
+                
+                # Создаем карточки для каждого модуля
+                module_names = {
+                    'hedging': ('ХЕДЖИНГ', 'Капитан команды', '🛡️'),
+                    'phrases': ('ИИ-ФРАЗЫ', 'Нападающий', '🤖'),
+                    'burstiness': ('BURSTINESS', 'Полузащитник', '📊'),
+                    'grammar': ('ГРАММАТИКА', 'Защитник', '📚'),
+                    'paragraph': ('АБЗАЦЫ', 'Защитник', '📑'),
+                    'unicode': ('UNICODE', 'Резерв', '🔣'),
+                    'dashes': ('ТИРЕ', 'Резерв', '➖'),
+                    'perplexity': ('ПЕРПЛЕКСИЯ', 'Легионер', '🧮'),
+                    'semantic': ('СЕМАНТИКА', 'Легионер', '🔄'),
+                    'parenthesis': ('СКОБКИ', 'Новичок 2026', '📌'),
+                    'punctuation': ('ПУНКТУАЦИЯ', 'Новичок 2026', '❗'),
+                    'apostrophe': ('АПОСТРОФЫ', 'Новичок 2026', '🔤'),
+                    'enumeration': ('ПЕРЕЧИСЛЕНИЯ', 'Новичок 2026', '🔢')
+                }
+                
+                # Создаем сетку карточек
+                cols = st.columns(3)
+                col_idx = 0
+                
+                for module_key, (display_name, position, emoji) in module_names.items():
+                    if module_key in results:
+                        data = results[module_key]
+                        risk_score = data.get('risk_score', 0)
+                        
+                        # Определяем медаль
+                        medal = ''
+                        if integrated_results['medal_mapping'].get(module_key) == 'gold':
+                            medal = '🥇'
+                        elif integrated_results['medal_mapping'].get(module_key) == 'silver':
+                            medal = '🥈'
+                        elif integrated_results['medal_mapping'].get(module_key) == 'bronze':
+                            medal = '🥉'
+                        
+                        # Определяем цвет риска
+                        if risk_score >= 3:
+                            risk_color = '#c62828'
+                            risk_text = 'ВЫСОКИЙ'
+                        elif risk_score >= 2:
+                            risk_color = '#f9a825'
+                            risk_text = 'СРЕДНИЙ'
+                        elif risk_score >= 1:
+                            risk_color = '#2e7d32'
+                            risk_text = 'НИЗКИЙ'
+                        else:
+                            risk_color = '#1E88E5'
+                            risk_text = 'НЕТ'
+                        
+                        with cols[col_idx % 3]:
+                            st.markdown(f"""
+                            <div class="player-card">
+                                <div class="player-name">{medal} {emoji} {display_name} {medal}</div>
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{position}</div>
+                                <div class="player-score" style="color: {risk_color};">{risk_score}/3</div>
+                                <div class="player-medal">{risk_text}</div>
+                                <div style="font-size: 0.8rem; margin-top: 0.5rem;">Уверенность: {data.get('confidence', 0.5):.0%}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        col_idx += 1
+            
+            # =================================================================
+            # Вкладка 3: СТАТИСТИКА (подробная статистика)
+            # =================================================================
+            with tab3:
+                st.header("📊 ДЕТАЛЬНАЯ СТАТИСТИКА")
+                
+                # Сводная таблица
+                summary_data = []
+                for key, data in results.items():
+                    if isinstance(data, dict):
+                        risk_level = data.get('risk_level', 'unknown')
+                        risk_score = data.get('risk_score', 0)
+                        confidence = data.get('confidence', 0.5)
+                        
+                        # Получаем основное значение
+                        main_value = 'N/A'
+                        if 'density_per_10k' in data:
+                            main_value = f"{data['density_per_10k']:.2f}/10k"
+                        elif 'percentage_heavy' in data:
+                            main_value = f"{data['percentage_heavy']:.1f}%"
+                        elif 'cv' in data:
+                            main_value = f"{data['cv']:.3f}"
+                        elif 'hedging_per_1000' in data:
+                            main_value = f"{data['hedging_per_1000']:.1f}/1000"
+                        elif 'passive_percentage' in data:
+                            main_value = f"{data['passive_percentage']:.1f}%"
+                        elif 'non_latin_per_1000' in data:
+                            main_value = f"{data['non_latin_per_1000']:.2f}/1000"
+                        elif 'apostrophe_per_1000' in data:
+                            main_value = f"{data['apostrophe_per_1000']:.2f}/1000"
+                        elif 'enumeration_per_1000' in data:
+                            main_value = f"{data['enumeration_per_1000']:.2f}/1000"
+                        elif 'long_percentage' in data:
+                            main_value = f"{data['long_percentage']:.1f}%"
+                        
+                        # Человеческое название
+                        display_name = module_names.get(key, (key.capitalize(), '', ''))[0]
+                        
+                        summary_data.append({
+                            'Модуль': display_name,
+                            'Уровень риска': risk_level.upper(),
+                            'Оценка': f"{risk_score}/3",
+                            'Уверенность': f"{confidence:.0%}",
+                            'Значение': main_value
+                        })
+                
+                if summary_data:
+                    df = pd.DataFrame(summary_data)
+                    
+                    # Цветовая кодировка
+                    def color_risk(val):
+                        if 'HIGH' in val:
+                            return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+                        elif 'MEDIUM' in val or 'MEDIUM-HIGH' in val or 'MEDIUM-LOW' in val:
+                            return 'background-color: #fff8e1; color: #f9a825; font-weight: bold;'
+                        elif 'LOW' in val:
+                            return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
+                        return ''
+                    
+                    styled_df = df.style.applymap(color_risk, subset=['Уровень риска'])
+                    st.dataframe(styled_df, use_container_width=True)
+                
+                # Расширенная статистика по каждому модулю
+                st.subheader("📈 РАСШИРЕННАЯ СТАТИСТИКА")
+                
+                for key, data in results.items():
+                    if 'statistics' in data and data['statistics']:
+                        display_name = module_names.get(key, (key.capitalize(), '', ''))[0]
+                        with st.expander(f"{display_name} - детализация"):
+                            stats = data['statistics']
+                            # Создаем DataFrame для статистики
+                            stats_df = pd.DataFrame([stats])
+                            st.dataframe(stats_df.T.rename(columns={0: 'Значение'}), use_container_width=True)
+            
+            # =================================================================
+            # Вкладка 4: ИНТЕГРАЛЬНАЯ ОЦЕНКА
+            # =================================================================
+            with tab4:
+                st.header("🎯 ИНТЕГРАЛЬНАЯ ОЦЕНКА")
+                
+                # Турнирная таблица
+                st.markdown("""
+                <div class="tournament-table">
+                    <h3 style="text-align: center;">📊 ТУРНИРНАЯ ТАБЛИЦА МОДУЛЕЙ</h3>
+                """, unsafe_allow_html=True)
+                
+                if integrated_results['module_scores']:
+                    # Сортируем по вкладу
+                    sorted_modules = sorted(integrated_results['module_scores'], 
+                                          key=lambda x: x['contribution'], reverse=True)
+                    
+                    module_names_rev = {v: k for k, (v, _, _) in module_names.items()}
+                    
+                    for i, module in enumerate(sorted_modules):
+                        mod_key = module['module']
+                        display_name = module_names.get(mod_key, (mod_key.capitalize(), '', ''))[0]
+                        contribution = module['contribution']
+                        
+                        # Определяем прогресс бар
+                        bar_width = min(contribution * 2, 100)  # Для наглядности масштабируем
+                        
+                        # Определяем медаль
+                        medal = ''
+                        if i == 0:
+                            medal = '🥇'
+                        elif i == 1:
+                            medal = '🥈'
+                        elif i == 2:
+                            medal = '🥉'
+                        
+                        st.markdown(f"""
+                        <div class="tournament-row">
+                            <span class="tournament-rank">{i+1}.</span>
+                            <span class="tournament-player">{medal} {display_name}</span>
+                            <div class="tournament-bar">
+                                <div class="tournament-progress" style="width: {bar_width}%;"></div>
+                            </div>
+                            <span class="tournament-value">{contribution:.1f}%</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Диаграмма вклада
+                st.subheader("📊 ВКЛАД МОДУЛЕЙ В ИТОГОВЫЙ РЕЗУЛЬТАТ")
                 
                 if integrated_results['module_scores']:
                     module_df = pd.DataFrame(integrated_results['module_scores'])
+                    
+                    # Добавляем человеческие названия
+                    module_df['display_name'] = module_df['module'].apply(
+                        lambda x: module_names.get(x, (x.capitalize(), '', ''))[0]
+                    )
                     
                     # Сортируем по вкладу
                     module_df = module_df.sort_values('contribution', ascending=True)
@@ -1789,7 +2740,7 @@ def main():
                     fig = go.Figure(data=[
                         go.Bar(
                             x=module_df['contribution'],
-                            y=module_df['module'],
+                            y=module_df['display_name'],
                             orientation='h',
                             marker=dict(
                                 color=module_df['contribution'],
@@ -1806,29 +2757,97 @@ def main():
                         title="Вклад модулей в итоговый риск (в %)",
                         xaxis_title="Вклад в итоговую оценку (%)",
                         yaxis_title="Модуль",
-                        height=400,
-                        showlegend=False
+                        height=500,
+                        showlegend=False,
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)'
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Таблица с деталями
-                    st.subheader("Детализация по модулям")
-                    module_df['raw_score_display'] = module_df['raw_score'].apply(lambda x: f"{x}/3")
-                    module_df['confidence_display'] = module_df['confidence'].apply(lambda x: f"{x:.0%}")
-                    module_df['weight_display'] = module_df['weight'].apply(lambda x: f"{x:.1%}")
-                    
-                    display_df = module_df[['module', 'raw_score_display', 'confidence_display', 
-                                           'weight_display', 'contribution']]
-                    display_df.columns = ['Модуль', 'Оценка', 'Уверенность', 'Вес', 'Вклад (%)']
-                    
-                    st.dataframe(display_df, use_container_width=True)
             
             # =================================================================
-            # Вкладка 5: Текст
+            # Вкладка 5: НОВИЧКИ 2026 (детальный анализ новых модулей)
             # =================================================================
             with tab5:
-                st.header("📝 Исходный текст")
+                st.header("🆕 НОВЫЕ ИГРОКИ СЕЗОНА 2026")
+                
+                col_a, col_b = st.columns(2)
+                
+                with col_a:
+                    # Parenthesis анализ
+                    if 'parenthesis' in results:
+                        st.subheader("📌 Длинные пояснения в скобках")
+                        p = results['parenthesis']
+                        
+                        st.metric("Всего скобок", p['total_parentheses'])
+                        st.metric("Длинных (≥5 слов)", p['long_parentheses'])
+                        st.metric("Процент длинных", f"{p['long_percentage']:.1f}%")
+                        st.metric("Средняя длина", f"{p.get('average_words_per_parenthesis', 0):.1f} слов")
+                        
+                        if p['long_examples']:
+                            st.write("**Примеры длинных пояснений:**")
+                            for ex in p['long_examples'][:3]:
+                                st.info(f"📝 {ex['text']} ({ex['word_count']} слов)")
+                        
+                        st.metric("Оценка риска", f"{p['risk_score']}/3")
+                        st.metric("Уверенность", f"{p['confidence']:.0%}")
+                    
+                    # Apostrophe анализ
+                    if 'apostrophe' in results:
+                        st.subheader("🔤 Апострофы 's")
+                        a = results['apostrophe']
+                        
+                        st.metric("Всего апострофов", a['apostrophe_count'])
+                        st.metric("На 1000 слов", f"{a['apostrophe_per_1000']:.2f}")
+                        st.metric("Уникальных слов", len(a['unique_apostrophe_words']))
+                        
+                        if a['apostrophe_examples']:
+                            st.write("**Примеры:**")
+                            st.write(", ".join(a['apostrophe_examples'][:8]))
+                        
+                        st.metric("Оценка риска", f"{a['risk_score']}/3")
+                        st.metric("Уверенность", f"{a['confidence']:.0%}")
+                
+                with col_b:
+                    # Punctuation анализ
+                    if 'punctuation' in results:
+                        st.subheader("❗ Пунктуация ! ? ;")
+                        pu = results['punctuation']
+                        
+                        st.metric("Восклицательных знаков", f"{pu['exclamation_per_1000']:.2f}/1000")
+                        st.metric("Вопросительных знаков", f"{pu['question_per_1000']:.2f}/1000")
+                        st.metric("Точка с запятой", f"{pu['semicolon_per_1000']:.2f}/1000")
+                        st.metric("Сложных структур с ;", pu['complex_semicolon_structures'])
+                        
+                        if pu['semicolon_contexts']:
+                            st.write("**Примеры сложных ;:**")
+                            for ctx in pu['semicolon_contexts'][:2]:
+                                st.info(f"📋 {ctx['before']} ; {ctx['after']}")
+                        
+                        st.metric("Оценка риска", f"{pu['risk_score']}/3")
+                        st.metric("Уверенность", f"{pu['confidence']:.0%}")
+                    
+                    # Enumeration анализ
+                    if 'enumeration' in results:
+                        st.subheader("🔢 Перечисления X, Y, and Z")
+                        e = results['enumeration']
+                        
+                        st.metric("Всего перечислений", e['enumeration_count'])
+                        st.metric("На 1000 слов", f"{e['enumeration_per_1000']:.2f}")
+                        
+                        if e['enumeration_examples']:
+                            st.write("**Примеры:**")
+                            for ex in e['enumeration_examples'][:3]:
+                                st.info(f"📋 {ex}")
+                        
+                        st.metric("Оценка риска", f"{e['risk_score']}/3")
+                        st.metric("Уверенность", f"{e['confidence']:.0%}")
+            
+            # =================================================================
+            # Вкладка 6: ТЕКСТ
+            # =================================================================
+            with tab6:
+                st.header("📝 ИСХОДНЫЙ ТЕКСТ")
                 
                 # Показываем подозрительные предложения
                 if 'dashes' in results and results['dashes']['heavy_sentences']:
@@ -1847,8 +2866,13 @@ def main():
                                 st.markdown(f"- *{phrase}*: ...{match}...")
                 
                 # Показываем текст
-                st.subheader("Текст статьи (первые 5000 символов)")
-                text_sample = text[:5000] + ("..." if len(text) > 5000 else "")
+                st.subheader("Текст статьи (обрезан до References)")
+                
+                # Разбиваем на страницы для удобства
+                text_pages = [text[i:i+5000] for i in range(0, len(text), 5000)]
+                page_num = st.selectbox("Страница", range(1, len(text_pages)+1))
+                
+                text_sample = text_pages[page_num-1]
                 
                 # Подсвечиваем подозрительные символы
                 if 'unicode' in results and results['unicode']['suspicious_chunks']:
@@ -1860,8 +2884,7 @@ def main():
                 
                 st.markdown(text_sample)
                 
-                if len(text) > 5000:
-                    st.info(f"Показано 5000 из {len(text)} символов. Полный текст доступен в скачанном файле.")
+                st.info(f"Страница {page_num} из {len(text_pages)}. Всего символов: {len(text)}")
         
         except Exception as e:
             st.error(f"Ошибка при обработке: {str(e)}")
@@ -1869,35 +2892,67 @@ def main():
     
     else:
         # Информация о приложении
-        st.info("👆 Загрузите файл для начала анализа")
+        st.info("👆 Загрузите файл для начала матча!")
         
-        with st.expander("ℹ️ О метриках анализа (обновлено 2025-2026)"):
+        # Превью состава
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
             st.markdown("""
-            ### Уровни анализа:
+            <div class="player-card">
+                <div class="player-name">⚽ ОСНОВА</div>
+                <div>Хеджинг (капитан)</div>
+                <div>ИИ-фразы</div>
+                <div>Burstiness</div>
+                <div>Грамматика</div>
+                <div>Абзацы</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div class="player-card">
+                <div class="player-name">🆕 НОВИЧКИ 2026</div>
+                <div>Длинные скобки</div>
+                <div>Пунктуация ! ? ;</div>
+                <div>Апострофы 's</div>
+                <div>Перечисления</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown("""
+            <div class="player-card">
+                <div class="player-name">🔬 ЛЕГИОНЕРЫ</div>
+                <div>Перплексия</div>
+                <div>Семантика</div>
+                <div>Unicode</div>
+                <div>Тире</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with st.expander("ℹ️ О сезоне 2026"):
+            st.markdown("""
+            ### 🏆 ЧЕМПИОНАТ AI-ДЕТЕКЦИИ 2026
             
-            **Уровень 1: Артефакты**
-            - **Unicode-артефакты**: надстрочные/подстрочные символы, fullwidth цифры, гомоглифы
-            - **Нелатинские символы**: греческие, кириллица, арабские (частота на 1000 слов)
-            - **Множественные тире**: ≥3 длинных тире в предложении
-            - **ИИ-фразы 2025-2026**: обновленный список маркеров (landscape, delve, leverage и др.)
+            **Новые игроки в составе:**
+            - **Длинные скобки** - анализ пояснений в скобках (>=5 слов - признак человека)
+            - **Пунктуация** - использование ! ? ; (сложные структуры - признак человека)
+            - **Апострофы** - частота 's (Parkinson's, pathway's - признак человека)
+            - **Перечисления** - строгие структуры X, Y, and Z (признак человека)
             
-            **Уровень 2: Статистика**
-            - **Burstiness**: вариативность длины предложений (низкая = вероятно ИИ)
-            - **Грамматика**: пассив, номинализации, модальные глаголы
-            - **Хеджинг**: ключевой маркер - использование слов неуверенности (may, might, suggests)
+            **Обновленная статистика:**
+            - Для всех метрик вычисляются mean, median, max, std
+            - Полный анализ текста до References
+            - Все модули всегда активны
             
-            **Уровень 3: Абзацный анализ (новое)**
-            - **Внутриабзацная похожесть**: >0.72 - сильный сигнал ИИ
-            - **Плавность переходов**: >0.65 между абзацами - типично для ИИ
-            - **Структурная повторяемость**: однородность секций
-            
-            **Интегральная оценка:**
-            - Учитываются веса модулей 2025-2026
-            - Итоговая оценка 0-100 с учетом уверенности
-            - Детализация вклада каждого модуля
+            **Система оценки:**
+            - Табло с итоговым счетом 0-100
+            - Медали для лучших модулей
+            - Турнирная таблица с прогресс-барами
+            - MVP матча
             """)
 
 
 if __name__ == "__main__":
     main()
-
