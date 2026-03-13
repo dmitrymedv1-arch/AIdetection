@@ -2978,7 +2978,7 @@ def main():
                     ('punctuation', PunctuationAnalyzer(), 50),
                     ('apostrophe', ApostropheAnalyzer(), 55),
                     ('enumeration', EnumerationAnalyzer(), 60),
-                    ('paragraph', ParagraphAnalyzer(), 65),
+                    ('paragraph', ParagraphAnalyzer(), 65, True),
                     ('repetitiveness', RepetitivenessAnalyzer(), 70),
                     ('lexical_diversity', LexicalDiversityAnalyzer(), 75)
                 ]
@@ -3000,7 +3000,7 @@ def main():
                     module_container.markdown(module_html, unsafe_allow_html=True)
                     
                     # Run analyzer
-                    if name == 'phrases' or name == 'punctuation' or name == 'enumeration':
+                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph']:
                         results[name] = analyzer.analyze(text, sentences)
                     else:
                         results[name] = analyzer.analyze(text)
@@ -3285,3 +3285,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
