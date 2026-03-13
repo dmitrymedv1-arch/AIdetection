@@ -3226,7 +3226,7 @@ def main():
                     </div>
                     """
                 
-                metrics_html += '</div>
+                metrics_html += '</div>'
                 
                 # Выводим с unsafe_allow_html=True
                 st.markdown(metrics_html, unsafe_allow_html=True)
