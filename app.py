@@ -3209,12 +3209,17 @@ def main():
                     <h4 style="margin-top: 0;">Sample Statistics</h4>
                 """, unsafe_allow_html=True)
                 
-                cols = st.columns(4)
-                for i, (label, value, unit) in enumerate(metrics):
-                    with cols[i]:
-                        st.metric(label, f"{value}{unit}")
+                metrics_html = '<div class="metric-grid">'
+                for label, value, unit in metrics:
+                    metrics_html += f"""
+                    <div class="metric-card">
+                        <div class="metric-title">{label}</div>
+                        <div class="metric-value">{value}<span class="metric-unit">{unit}</span></div>
+                    </div>
+                    """
+                metrics_html += '</div>'                      # ← только закрытие грида
                 
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown(metrics_html, unsafe_allow_html=True)
             
             # Module spectrum
             st.markdown("""
