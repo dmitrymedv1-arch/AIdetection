@@ -504,7 +504,6 @@ class ReferenceCutoff:
         
         return text
 
-
 class UnicodeArtifactDetector:
     """Unicode artifact detector (level 1)"""
     
@@ -657,78 +656,55 @@ class UnicodeArtifactDetector:
             results['statistics']['median_density'] = float(np.median(densities))
             results['statistics']['max_density'] = float(np.max(densities))
         
-        # Risk assessment
+        # Risk assessment - УВЕЛИЧЕННЫЕ ЗНАЧЕНИЯ
         risk_score = 0
         confidence = 0.5  # base confidence
         
-        # Consider artifact density
+        # Consider artifact density - УВЕЛИЧИВАЕМ ВЕС
         if results['density_per_10k'] > 8:
-            risk_score += 3
-            confidence = 0.9
+            risk_score += 5                      # было 3, стало 5
+            confidence = 0.95
         elif results['density_per_10k'] > 3:
-            risk_score += 2
-            confidence = 0.7
+            risk_score += 4                      # было 3, стало 4
+            confidence = 0.85
         elif results['density_per_10k'] > 0:
-            risk_score += 1
-            confidence = 0.6
+            risk_score += 3                      # было 2, стало 3
+            confidence = 0.75
         
         # Consider homoglyphs (more dangerous)
         if results['homoglyph_count'] > 5:
-            risk_score += 2
+            risk_score += 4                      # было 3, стало 4
             confidence = min(confidence + 0.2, 1.0)
         elif results['homoglyph_count'] > 0:
-            risk_score += 1
-            confidence = min(confidence + 0.1, 1.0)
+            risk_score += 3                      # было 2, стало 3
+            confidence = min(confidence + 0.15, 1.0)
         
         # Too many non-Latin characters (except Greek in scientific) - suspicious
         if results['non_latin_total'] > 100 and results['greek_count'] < results['non_latin_total'] * 0.8:
-            risk_score += 1
+            risk_score += 3                      # было 2, стало 3
+        
+        # Если очень много артефактов - максимум риска
+        if results['density_per_10k'] > 15 or results['sup_sub_count'] > 20:
+            risk_score = 6                       # было 3, стало 6 (максимум)
+            confidence = 1.0
+        
+        # Ограничиваем максимальный risk_score
+        risk_score = min(risk_score, 6)           # добавляем ограничение сверху
         
         results['risk_score'] = risk_score
         results['confidence'] = confidence
         
         # Convert to levels for backward compatibility
-        if risk_score >= 4:
+        if risk_score >= 5:
+            results['risk_level'] = 'critical'
+        elif risk_score >= 4:
             results['risk_level'] = 'high'
         elif risk_score >= 2:
             results['risk_level'] = 'medium'
         elif risk_score > 0:
             results['risk_level'] = 'low'
-
-        # Risk assessment
-        risk_score = 0
-        confidence = 0.5  # base confidence
-        
-        # Consider artifact density
-        if results['density_per_10k'] > 8:
-            risk_score += 3
-            confidence = 0.95
-        elif results['density_per_10k'] > 3:
-            risk_score += 3  # повышено с 2 до 3
-            confidence = 0.85
-        elif results['density_per_10k'] > 0:
-            risk_score += 2  # повышено с 1 до 2
-            confidence = 0.75
-        
-        # Consider homoglyphs (more dangerous)
-        if results['homoglyph_count'] > 5:
-            risk_score += 3  # повышено с 2 до 3
-            confidence = min(confidence + 0.2, 1.0)
-        elif results['homoglyph_count'] > 0:
-            risk_score += 2  # повышено с 1 до 2
-            confidence = min(confidence + 0.15, 1.0)
-        
-        # Too many non-Latin characters (except Greek in scientific) - suspicious
-        if results['non_latin_total'] > 100 and results['greek_count'] < results['non_latin_total'] * 0.8:
-            risk_score += 2  # повышено с 1 до 2
-        
-        # Если очень много артефактов - максимум риска
-        if results['density_per_10k'] > 15 or results['sup_sub_count'] > 20:
-            risk_score = 3
-            confidence = 1.0
         
         return results
-
 
 class DashAnalyzer:
     """Multiple long dash analysis (level 1)"""
@@ -803,29 +779,31 @@ class DashAnalyzer:
                 results['statistics']['max_dashes_in_sentence'] = float(np.max(dash_counts))
                 results['statistics']['distribution'] = dash_counts[:100]
         
-        # Probabilistic risk assessment
+        # Probabilistic risk assessment - УВЕЛИЧЕННЫЕ ЗНАЧЕНИЯ
         risk_score = 0
         confidence = 0.5
         
         if results['percentage_heavy'] > 5:
-            risk_score = 3
+            risk_score = 4                      # было 3, стало 4
             confidence = 0.85
         elif results['percentage_heavy'] > 2:
-            risk_score = 2
+            risk_score = 3                      # было 2, стало 3
             confidence = 0.7
         elif results['percentage_heavy'] > 0:
-            risk_score = 1
+            risk_score = 2                      # было 1, стало 2
             confidence = 0.6
         
         # If many sentences with dashes but not heavy - also suspicious
         if len(results['sentences_with_multiple_dashes']) > len(sentences) * 0.1:
-            risk_score = max(risk_score, 2)
+            risk_score = max(risk_score, 3)      # было 2, стало 3
             confidence = min(confidence + 0.1, 1.0)
         
         results['risk_score'] = risk_score
         results['confidence'] = confidence
         
-        if risk_score >= 3:
+        if risk_score >= 4:
+            results['risk_level'] = 'critical'
+        elif risk_score >= 3:
             results['risk_level'] = 'high'
         elif risk_score >= 2:
             results['risk_level'] = 'medium'
@@ -833,7 +811,6 @@ class DashAnalyzer:
             results['risk_level'] = 'low'
         
         return results
-
 
 class AIPhraseDetector:
     """Detector of characteristic AI phrases and clichés (level 1)"""
@@ -2060,7 +2037,6 @@ class PunctuationAnalyzer:
         
         return results
 
-
 class ApostropheAnalyzer:
     """Apostrophe 's analysis (new module)"""
     
@@ -2127,27 +2103,29 @@ class ApostropheAnalyzer:
             results['statistics']['max_apostrophes_in_paragraph'] = float(np.max(apostrophes_per_paragraph))
             results['statistics']['distribution'] = apostrophes_per_paragraph
         
-        # Risk assessment (frequent apostrophe usage = AI indicator)
+        # Risk assessment - УВЕЛИЧЕННЫЕ ЗНАЧЕНИЯ
         risk_score = 0
         confidence = 0.5
         
         if results['apostrophe_per_1000'] > 2.0:
-            risk_score = 3
+            risk_score = 5                      # было 3, стало 5
             confidence = 0.9
         elif results['apostrophe_per_1000'] > 1.0:
-            risk_score = 2
+            risk_score = 4                      # было 2, стало 4
             confidence = 0.7
         elif results['apostrophe_per_1000'] > 0.3:
-            risk_score = 1
+            risk_score = 3                      # было 1, стало 3
             confidence = 0.6
         else:
-            risk_score = 0
+            risk_score = 1                      # было 0, стало 1 (минимальный риск)
             confidence = 0.5
         
         results['risk_score'] = risk_score
         results['confidence'] = confidence
         
-        if risk_score >= 3:
+        if risk_score >= 5:
+            results['risk_level'] = 'critical'
+        elif risk_score >= 4:
             results['risk_level'] = 'high'
         elif risk_score >= 2:
             results['risk_level'] = 'medium'
@@ -2157,7 +2135,6 @@ class ApostropheAnalyzer:
             results['risk_level'] = 'very_low'
         
         return results
-
 
 class EnumerationAnalyzer:
     """Strict enumeration analysis (improved version)"""
@@ -2682,25 +2659,25 @@ class IntegratedRiskScorer:
     """Integrated risk assessment based on all modules"""
     
     def __init__(self):
-        # Module weights (updated with new modules)
+        # Module weights (updated with new weights - UNICODE NOW 25%!)
         self.weights = {
-            'unicode': 0.15,
-            'dashes': 0.12,
+            'unicode': 0.25,        # УВЕЛИЧЕНО с 0.15 до 0.25 (теперь 25% веса)
+            'dashes': 0.12,          # оставляем 12%
             'phrases': 0.07,
             'burstiness': 0.05,
-            'grammar': 0.07,
-            'hedging': 0.10,
-            'paragraph': 0.06,
-            'perplexity': 0.05,
-            'semantic': 0.05,
-            'parenthesis': 0.04,
-            'punctuation': 0.03,
-            'apostrophe': 0.08,
-            'enumeration': 0.09,
-            'repetitiveness': 0.05,
-            'lexical_diversity': 0.06,
-            'log_prob': 0.04,
-            'ml_classifier': 0.03
+            'grammar': 0.06,          # уменьшено немного
+            'hedging': 0.08,           # уменьшено
+            'paragraph': 0.04,          # уменьшено
+            'perplexity': 0.03,          # уменьшено
+            'semantic': 0.03,             # уменьшено
+            'parenthesis': 0.03,           # уменьшено
+            'punctuation': 0.03,           # уменьшено
+            'apostrophe': 0.08,            # оставляем 8%
+            'enumeration': 0.07,            # уменьшено
+            'repetitiveness': 0.03,          # уменьшено
+            'lexical_diversity': 0.02,        # уменьшено
+            'log_prob': 0.01,                 # минимум
+            'ml_classifier': 0.01              # минимум
         }
                
         # Normalize weights
@@ -2710,7 +2687,7 @@ class IntegratedRiskScorer:
                 self.weights[key] /= total
     
     def calculate(self, results: Dict) -> Dict:
-        """Calculate integrated risk"""
+        """Calculate integrated risk with improved weighting"""
         total_score = 0
         total_confidence = 0
         weighted_score = 0
@@ -2733,9 +2710,13 @@ class IntegratedRiskScorer:
                     # Нормализуем вес относительно доступных модулей
                     normalized_weight = self.weights[module] / total_available_weight
                     
-                    # Нормализуем risk_score (0-3) к 0-1
-                    max_score = 3
+                    # Нормализуем risk_score с учетом увеличенного максимума (теперь до 6)
+                    max_score = 6  # БЫЛО 3, СТАЛО 6 (учет увеличенных значений)
                     norm_score = min(data['risk_score'] / max_score, 1.0)
+                    
+                    # Для модулей с очень высоким риском - усиливаем сигнал
+                    if data['risk_score'] >= 5:
+                        norm_score = min(norm_score * 1.2, 1.0)  # буст для очень сильных сигналов
                     
                     # Учитываем confidence модуля
                     confidence = data.get('confidence', 0.5)
@@ -2762,16 +2743,21 @@ class IntegratedRiskScorer:
                     weighted_score += norm_score * normalized_weight
                     total_confidence += confidence * normalized_weight
         
-        # Финальный score 0-100
+        # Финальный score 0-100 - УВЕЛИЧИВАЕМ ЧУВСТВИТЕЛЬНОСТЬ
         final_score = weighted_score * 100
+        
+        # Усиливаем влияние высоких скоров (нелинейное усиление)
+        if weighted_score > 0.5:
+            final_score = final_score * 1.2  # буст для явных случаев
+        elif weighted_score > 0.7:
+            final_score = final_score * 1.3  # еще больше буста
         
         # Корректировка на уверенность
         if total_confidence > 0:
             final_score = final_score * (0.5 + 0.5 * total_confidence)
         
-        # Для отладки - выводим веса в st.write (можно закомментировать после проверки)
-        # st.write("Available modules:", available_modules)
-        # st.write("Weights:", {m: self.weights[m] for m in available_modules})
+        # Ограничиваем максимум 100
+        final_score = min(final_score, 100)
         
         # Определяем уровень риска
         risk_level = 'unknown'
@@ -2794,7 +2780,7 @@ class IntegratedRiskScorer:
             'weighted_score': weighted_score,
             'total_confidence': total_confidence,
             'module_scores': module_scores,
-            'available_modules': available_modules  # для отладки
+            'available_modules': available_modules
         }
         
 class DocumentProcessor:
@@ -3170,17 +3156,48 @@ def main():
             st.markdown('<div class="metric-grid">', unsafe_allow_html=True)
             
             for module_score in integrated['module_scores']:
-                color = "#ef4444" if module_score['norm_score'] > 0.6 else "#fbbf24" if module_score['norm_score'] > 0.3 else "#10b981"
+                # Определяем цвет и стиль на основе raw_score
+                if module_score['raw_score'] >= 5:
+                    color = "#9b1f1f"  # темно-красный для очень сильных сигналов
+                    border = "2px solid #9b1f1f"
+                    bg_color = "#ffeeee"
+                    emoji = "🔴"
+                elif module_score['raw_score'] >= 4:
+                    color = "#ef4444"  # красный
+                    border = "1px solid #ef4444"
+                    bg_color = "#fff5f5"
+                    emoji = "⚠️"
+                elif module_score['raw_score'] >= 3:
+                    color = "#f97316"  # оранжевый
+                    border = "1px solid #f97316"
+                    bg_color = "#fff7ed"
+                    emoji = "⚡"
+                elif module_score['raw_score'] >= 2:
+                    color = "#fbbf24"  # желтый
+                    border = "none"
+                    bg_color = "white"
+                    emoji = "📊"
+                else:
+                    color = "#10b981"  # зеленый
+                    border = "none"
+                    bg_color = "white"
+                    emoji = "✅"
+                
                 st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-title">{module_score['module'].replace('_', ' ').title()}</div>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="metric-card" style="border: {border}; background-color: {bg_color};">
+                    <div class="metric-title">
+                        {emoji} {module_score['module'].replace('_', ' ').title()}
+                        <span style="float: right; font-size: 0.8rem; background: {color}; color: white; padding: 2px 8px; border-radius: 12px;">
+                            raw: {module_score['raw_score']}/6
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem;">
                         <div style="flex: 1;">
                             <div style="height: 8px; background: #e0e0e0; border-radius: 4px;">
                                 <div class="contribution-bar" style="width: {module_score['contribution']}%; background: {color};"></div>
                             </div>
                         </div>
-                        <div style="font-weight: 600;">{module_score['contribution']:.1f}%</div>
+                        <div style="font-weight: 600; color: {color};">{module_score['contribution']:.1f}%</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -3331,6 +3348,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
