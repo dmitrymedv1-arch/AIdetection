@@ -3210,6 +3210,13 @@ def main():
                 """, unsafe_allow_html=True)
                 
                 metrics_html = '<div class="metric-grid">'
+                metrics = [
+                    ("Sentences", len(sentences), ""),
+                    ("Words", len(text.split()), ""),
+                    ("Characters", len(text), ""),
+                    ("Modules", len(integrated['module_scores']), "")
+                ]
+                
                 for label, value, unit in metrics:
                     metrics_html += f"""
                     <div class="metric-card">
@@ -3217,8 +3224,8 @@ def main():
                         <div class="metric-value">{value}<span class="metric-unit">{unit}</span></div>
                     </div>
                     """
-                metrics_html += '</div>'                      # ← только закрытие грида
                 
+                metrics_html += '</div></div>'
                 st.markdown(metrics_html, unsafe_allow_html=True)
             
             # Module spectrum
