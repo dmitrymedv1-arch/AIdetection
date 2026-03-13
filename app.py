@@ -3000,7 +3000,7 @@ def main():
                     module_container.markdown(module_html, unsafe_allow_html=True)
                     
                     # Run analyzer
-                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph']:
+                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph', 'repetitiveness']:
                         results[name] = analyzer.analyze(text, sentences)
                     else:
                         results[name] = analyzer.analyze(text)
@@ -3285,6 +3285,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
