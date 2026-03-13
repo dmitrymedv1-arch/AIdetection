@@ -3175,6 +3175,7 @@ def main():
                     <h4 style="margin-top: 0;">Sample Statistics</h4>
                 """, unsafe_allow_html=True)
                 
+                # Create metrics grid
                 metrics_html = '<div class="metric-grid">'
                 metrics = [
                     ("Sentences", len(sentences), ""),
@@ -3192,6 +3193,8 @@ def main():
                     """
                 
                 metrics_html += '</div></div>'
+                
+                # Выводим с unsafe_allow_html=True
                 st.markdown(metrics_html, unsafe_allow_html=True)
             
             # Module spectrum
