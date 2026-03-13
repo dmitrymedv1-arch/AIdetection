@@ -14,6 +14,40 @@ import sys
 import warnings
 import time
 
+# Force CSS injection
+st.markdown("""
+<style>
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    .metric-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .metric-title {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #333;
+    }
+    .metric-unit {
+        font-size: 0.9rem;
+        color: #999;
+        margin-left: 0.25rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Отключаем все предупреждения spaCy и pydantic до импорта
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
