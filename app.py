@@ -3642,7 +3642,7 @@ def create_module_bar_chart(module_scores, width=450, height=200):
     bc.data = contributions
     bc.strokeColor = colors.black
     bc.strokeWidth = 0.5
-    bc.categoryNames = categories
+    bc.categoryAxis.categoryNames = categories 
     bc.valueAxis.valueMin = 0
     bc.valueAxis.valueMax = max(max(contributions[0]) * 1.1, 30)
     bc.valueAxis.valueStep = 10
