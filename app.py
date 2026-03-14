@@ -3986,19 +3986,14 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
         
         # Charts (only for full report)
         if report_type == "full" and module_scores:
-            # Create two columns for charts
             pie_chart = create_module_pie_chart(module_scores)
             bar_chart = create_module_bar_chart(module_scores)
             
             if pie_chart and bar_chart:
-                # Place charts side by side using a table
-                chart_data = [[pie_chart, bar_chart]]
-                chart_table = Table(chart_data, colWidths=[doc.width/2, doc.width/2])
-                chart_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ]))
-                story.append(chart_table)
+                # Place charts one below another
+                story.append(pie_chart)
+                story.append(Spacer(1, 0.3*cm))
+                story.append(bar_chart)
                 story.append(Spacer(1, 0.5*cm))
         
         # Text Statistics
