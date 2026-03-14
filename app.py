@@ -3441,17 +3441,9 @@ def main():
                         file_name="analysis_results.json",
                         mime="application/json"
                     )
+                    
             with col3:
-                if st.button("⚙️ Settings", use_container_width=True):
-                    st.session_state.step = 1
-                    # Очищаем результаты и файл
-                    st.session_state.analyze_clicked = False
-                    st.session_state.file_uploaded = False
-                    st.session_state.results = None
-                    st.session_state.uploaded_file = None
-                    st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.empty()
 
 
 if __name__ == "__main__":
