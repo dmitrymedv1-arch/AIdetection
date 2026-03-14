@@ -3188,7 +3188,6 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         story.append(Spacer(1, 0.5*cm))
     
     # Заголовок
-    story.append(Paragraph("CT(A)I-detector", title_style))
     story.append(Paragraph("Advanced AI Text Analysis Report", subtitle_style))
     story.append(Spacer(1, 1*cm))
     
@@ -3208,7 +3207,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
     
     story.append(Spacer(1, 3*cm))
     story.append(Paragraph("© CT(A)I-detector", footer_style))
-    story.append(Paragraph("https://github.com/your-repo", footer_style))
+    story.append(Paragraph("https://chimicatechnoacta.ru developed by @daM", footer_style))
     
     story.append(PageBreak())
     
