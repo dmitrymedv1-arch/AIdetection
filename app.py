@@ -3545,6 +3545,790 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
     return buffer.getvalue()
 
 # ============================================================================
+# PDF Report Generation - Enhanced Version with Charts and TOC
+# ============================================================================
+
+def create_module_pie_chart(module_scores, width=400, height=200):
+    """Create a pie/donut chart showing module contributions"""
+    from reportlab.graphics.shapes import Drawing, String
+    from reportlab.graphics.charts.piecharts import Pie
+    
+    if not module_scores:
+        return None
+    
+    # Take top 6 modules by contribution, group others as "Others"
+    sorted_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)
+    
+    if len(sorted_modules) > 6:
+        top_modules = sorted_modules[:5]
+        other_contribution = sum(m.get('contribution', 0) for m in sorted_modules[5:])
+        if other_contribution > 0:
+            top_modules.append({
+                'module': 'others',
+                'contribution': other_contribution,
+                'raw_score': 0
+            })
+    else:
+        top_modules = sorted_modules
+    
+    # Prepare data
+    data = [m.get('contribution', 0) for m in top_modules]
+    labels = [m.get('module', 'unknown').replace('_', ' ').title() for m in top_modules]
+    
+    # Create drawing
+    drawing = Drawing(width, height)
+    
+    # Create pie chart
+    pie = Pie()
+    pie.x = 50
+    pie.y = 30
+    pie.width = 150
+    pie.height = 150
+    pie.data = data
+    pie.labels = labels
+    pie.sideLabels = True
+    pie.simpleLabels = False
+    
+    # Colors
+    colors_list = [
+        colors.HexColor('#FF6B6B'),  # red
+        colors.HexColor('#4ECDC4'),  # teal
+        colors.HexColor('#45B7D1'),  # blue
+        colors.HexColor('#96CEB4'),  # green
+        colors.HexColor('#FFE194'),  # yellow
+        colors.HexColor('#D4A5A5'),  # pink
+    ]
+    
+    for i, color in enumerate(colors_list):
+        if i < len(pie.slices):
+            pie.slices[i].fillColor = color
+    
+    drawing.add(pie)
+    
+    # Add title
+    title = String(200, 180, 'Module Contribution Distribution')
+    title.fontName = 'Helvetica-Bold'
+    title.fontSize = 10
+    title.textAnchor = 'middle'
+    drawing.add(title)
+    
+    return drawing
+
+def create_module_bar_chart(module_scores, width=450, height=200):
+    """Create a bar chart showing top modules by contribution"""
+    from reportlab.graphics.shapes import Drawing
+    from reportlab.graphics.charts.barcharts import VerticalBarChart
+    
+    if not module_scores:
+        return None
+    
+    # Take top 8 modules
+    top_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)[:8]
+    
+    # Prepare data
+    contributions = [[m.get('contribution', 0) for m in top_modules]]
+    raw_scores = [m.get('raw_score', 0) for m in top_modules]
+    categories = [m.get('module', 'unknown').replace('_', ' ')[:12] for m in top_modules]
+    
+    # Create drawing
+    drawing = Drawing(width, height)
+    
+    # Create bar chart
+    bc = VerticalBarChart()
+    bc.x = 50
+    bc.y = 40
+    bc.width = 350
+    bc.height = 140
+    bc.data = contributions
+    bc.strokeColor = colors.black
+    bc.strokeWidth = 0.5
+    bc.categoryNames = categories
+    bc.valueAxis.valueMin = 0
+    bc.valueAxis.valueMax = max(max(contributions[0]) * 1.1, 30)
+    bc.valueAxis.valueStep = 10
+    bc.categoryAxis.labels.boxAnchor = 'ne'
+    bc.categoryAxis.labels.dx = 8
+    bc.categoryAxis.labels.dy = -2
+    bc.categoryAxis.labels.angle = 45
+    bc.bars[0].fillColor = colors.HexColor('#667eea')
+    
+    drawing.add(bc)
+    
+    # Add title
+    from reportlab.graphics.shapes import String
+    title = String(225, 180, 'Top Modules by Contribution')
+    title.fontName = 'Helvetica-Bold'
+    title.fontSize = 10
+    title.textAnchor = 'middle'
+    drawing.add(title)
+    
+    return drawing
+
+def add_horizontal_rule(story, width=None, thickness=1, color=colors.HexColor('#BDC3C7')):
+    """Add a horizontal line separator"""
+    from reportlab.platypus import Flowable
+    
+    class HRFlowable(Flowable):
+        def __init__(self, width, thickness=1, color=colors.black):
+            Flowable.__init__(self)
+            self.width = width
+            self.thickness = thickness
+            self.color = color
+        
+        def draw(self):
+            self.canv.setStrokeColor(self.color)
+            self.canv.setLineWidth(self.thickness)
+            self.canv.line(0, 0, self.width, 0)
+        
+        def wrap(self, availWidth, availHeight):
+            if self.width is None:
+                self.width = availWidth
+            return (self.width, self.thickness)
+    
+    story.append(HRFlowable(width, thickness, color))
+    story.append(Spacer(1, 0.3*cm))
+
+def add_watermark(canvas, doc, text="CONFIDENTIAL", opacity=0.1):
+    """Add watermark to every page"""
+    canvas.saveState()
+    canvas.setFillColor(colors.grey)
+    canvas.setFillAlpha(opacity)
+    canvas.setFont('Helvetica-Bold', 60)
+    canvas.rotate(45)
+    canvas.drawString(200, 100, text)
+    canvas.restoreState()
+
+def create_table_of_contents(story, doc):
+    """Create clickable table of contents"""
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, Spacer
+    from reportlab.lib import pagesizes
+    
+    story.append(PageBreak())
+    story.append(Paragraph("TABLE OF CONTENTS", ParagraphStyle(
+        'TOCHeading',
+        parent=getSampleStyleSheet()['Heading1'],
+        fontSize=16,
+        textColor=colors.HexColor('#2C3E50'),
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )))
+    
+    toc_entries = [
+        ("1. OVERALL RISK ASSESSMENT", 1),
+        ("2. MODULE CONTRIBUTIONS", 2),
+        ("3. DETAILED MODULE ANALYSIS", 3),
+        ("   3.1 Unicode Artifacts", 3),
+        ("   3.2 AI Phrases", 3),
+        ("   3.3 Strict Enumerations", 3),
+        ("   3.4 Apostrophe Usage", 3),
+        ("   3.5 Punctuation Analysis", 3),
+        ("   3.6 Parenthesis Analysis", 3),
+        ("   3.7 Repetitiveness Analysis", 3),
+        ("   3.8 Dash Analysis", 3),
+        ("   3.9 Lexical Diversity", 3),
+        ("4. TEXT SAMPLES", 4),
+        ("5. CONCLUSION & RECOMMENDATIONS", 5),
+    ]
+    
+    for title, page in toc_entries:
+        # Create clickable link
+        link_style = ParagraphStyle(
+            'TOCEntry',
+            parent=getSampleStyleSheet()['Normal'],
+            fontSize=11,
+            textColor=colors.HexColor('#3498DB'),
+            leftIndent=20 if title.startswith('   ') else 0,
+            fontName='Helvetica'
+        )
+        
+        # Add dots between title and page number
+        dots = '.' * (60 - len(title))
+        p = Paragraph(f'<link href="#section{page}">{title}{dots}{page}</link>', link_style)
+        story.append(p)
+        story.append(Spacer(1, 0.1*cm))
+    
+    story.append(PageBreak())
+
+def add_section_header(story, text, level=1, anchor=None):
+    """Add section header with optional anchor for TOC"""
+    styles = getSampleStyleSheet()
+    
+    if level == 1:
+        style = ParagraphStyle(
+            'Section1',
+            parent=styles['Heading1'],
+            fontSize=14,
+            textColor=colors.HexColor('#2980B9'),
+            spaceAfter=10,
+            spaceBefore=15,
+            fontName='Helvetica-Bold'
+        )
+    elif level == 2:
+        style = ParagraphStyle(
+            'Section2',
+            parent=styles['Heading2'],
+            fontSize=12,
+            textColor=colors.HexColor('#16A085'),
+            spaceAfter=8,
+            spaceBefore=10,
+            fontName='Helvetica-Bold'
+        )
+    else:
+        style = ParagraphStyle(
+            'Section3',
+            parent=styles['Heading3'],
+            fontSize=11,
+            textColor=colors.HexColor('#34495E'),
+            spaceAfter=6,
+            spaceBefore=8,
+            fontName='Helvetica-Bold'
+        )
+    
+    if anchor:
+        story.append(Paragraph(f'<a name="{anchor}"/>{text}', style))
+    else:
+        story.append(Paragraph(text, style))
+    
+    add_horizontal_rule(story, color=colors.HexColor('#BDC3C7') if level == 1 else None)
+
+def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analysis", report_type="full"):
+    """
+    Generate PDF report with charts, TOC, and watermark
+    
+    Args:
+        results_data: Analysis results
+        topic_name: Report title
+        report_type: "full" or "concise"
+    """
+    
+    buffer = io.BytesIO()
+    
+    # Document setup with page number and watermark
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        topMargin=1.5*cm,
+        bottomMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        rightMargin=1.5*cm,
+        title=topic_name,
+        author="CT(A)I-detector"
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#2C3E50'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#34495E'),
+        spaceAfter=8,
+        alignment=TA_CENTER,
+        fontName='Helvetica'
+    )
+    
+    meta_style = ParagraphStyle(
+        'CustomMeta',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#7F8C8D'),
+        spaceAfter=3,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Oblique'
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#2C3E50'),
+        spaceAfter=4,
+        alignment=TA_LEFT,
+        fontName='Helvetica'
+    )
+    
+    metrics_style = ParagraphStyle(
+        'CustomMetrics',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.HexColor('#27AE60'),
+        spaceAfter=2,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )
+    
+    example_style = ParagraphStyle(
+        'CustomExample',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#7F8C8D'),
+        spaceAfter=2,
+        leftIndent=20,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Oblique'
+    )
+    
+    footer_style = ParagraphStyle(
+        'CustomFooter',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#95A5A6'),
+        spaceBefore=15,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Oblique'
+    )
+    
+    story = []
+    
+    # ========== TITLE PAGE ==========
+    
+    story.append(Spacer(1, 2*cm))
+    
+    # Logo or emoji
+    try:
+        possible_paths = ["logo.png", "./logo.png", "app/logo.png"]
+        logo_path = next((p for p in possible_paths if os.path.exists(p)), None)
+        if logo_path:
+            logo = Image(logo_path, width=270, height=135)
+            logo.hAlign = 'CENTER'
+            story.append(logo)
+        else:
+            story.append(Paragraph("🔬", ParagraphStyle(
+                'LogoEmoji',
+                parent=styles['Heading1'],
+                fontSize=40,
+                textColor=colors.HexColor('#667eea'),
+                alignment=TA_CENTER
+            )))
+    except:
+        story.append(Paragraph("🔬", ParagraphStyle(
+            'LogoEmoji',
+            parent=styles['Heading1'],
+            fontSize=40,
+            textColor=colors.HexColor('#667eea'),
+            alignment=TA_CENTER
+        )))
+    
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph("Advanced AI Text Analysis Report", subtitle_style))
+    story.append(Spacer(1, 1*cm))
+    
+    # Meta info
+    current_date = datetime.now().strftime('%B %d, %Y at %H:%M')
+    story.append(Paragraph(f"Generated on {current_date}", meta_style))
+    
+    if results_data:
+        text = results_data.get('text', '')
+        sentences = results_data.get('sentences', [])
+        integrated = results_data.get('integrated', {})
+        
+        story.append(Paragraph(f"Total words analyzed: {len(text.split())}", meta_style))
+        story.append(Paragraph(f"Total sentences: {len(sentences)}", meta_style))
+        story.append(Paragraph(f"Risk score: {integrated.get('final_score', 0):.1f}/100", meta_style))
+        story.append(Paragraph(f"Risk level: {integrated.get('risk_level', 'unknown').replace('_', ' ').title()}", meta_style))
+    
+    story.append(Spacer(1, 3*cm))
+    story.append(Paragraph("© CT(A)I-detector", footer_style))
+    story.append(Paragraph("https://chimicatechnoacta.ru developed by @daM", footer_style))
+    
+    # ========== TABLE OF CONTENTS (only for full report) ==========
+    if report_type == "full":
+        create_table_of_contents(story, doc)
+    
+    # ========== MAIN REPORT ==========
+    
+    if not results_data:
+        story.append(Paragraph("No data available for analysis", normal_style))
+    else:
+        text = results_data.get('text', '')
+        sentences = results_data.get('sentences', [])
+        results = results_data.get('results', {})
+        integrated = results_data.get('integrated', {})
+        module_scores = integrated.get('module_scores', [])
+        
+        # 1. OVERALL RISK ASSESSMENT
+        add_section_header(story, "1. OVERALL RISK ASSESSMENT", level=1, anchor="section1")
+        
+        final_score = integrated.get('final_score', 0)
+        risk_level = integrated.get('risk_level', 'unknown').replace('_', ' ').title()
+        
+        # Determine color
+        if final_score < 30:
+            risk_color = '#27AE60'
+        elif final_score < 50:
+            risk_color = '#F39C12'
+        elif final_score < 70:
+            risk_color = '#E67E22'
+        else:
+            risk_color = '#E74C3C'
+        
+        story.append(Paragraph(f"AI Risk Score: {final_score:.1f}/100", 
+                              ParagraphStyle('Score', parent=metrics_style, fontSize=16, 
+                                           textColor=colors.HexColor(risk_color))))
+        story.append(Paragraph(f"Risk Level: {risk_level}", metrics_style))
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Charts (only for full report)
+        if report_type == "full" and module_scores:
+            # Create two columns for charts
+            pie_chart = create_module_pie_chart(module_scores)
+            bar_chart = create_module_bar_chart(module_scores)
+            
+            if pie_chart and bar_chart:
+                # Place charts side by side using a table
+                chart_data = [[pie_chart, bar_chart]]
+                chart_table = Table(chart_data, colWidths=[doc.width/2, doc.width/2])
+                chart_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                story.append(chart_table)
+                story.append(Spacer(1, 0.5*cm))
+        
+        # Text Statistics
+        add_section_header(story, "Text Statistics", level=2)
+        
+        stats_data = [
+            ["Metric", "Value"],
+            ["Characters", f"{len(text):,}"],
+            ["Words", f"{len(text.split()):,}"],
+            ["Sentences", f"{len(sentences):,}"],
+            ["Avg. sentence length", f"{len(text.split()) / max(len(sentences), 1):.1f} words"],
+            ["Modules analyzed", len(module_scores)]
+        ]
+        
+        stats_table = Table(stats_data, colWidths=[doc.width/2.5, doc.width/3])
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498DB')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8F9FA')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ]))
+        
+        story.append(stats_table)
+        story.append(Spacer(1, 0.5*cm))
+        
+        # 2. MODULE CONTRIBUTIONS
+        add_section_header(story, "2. MODULE CONTRIBUTIONS", level=1, anchor="section2")
+        
+        if module_scores:
+            sorted_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)
+            
+            module_data = [["Module", "Raw Score", "Contribution", "Confidence"]]
+            for ms in sorted_modules[:10 if report_type == "full" else 5]:  # Show fewer in concise
+                module_data.append([
+                    ms.get('module', 'unknown').replace('_', ' ').title(),
+                    f"{ms.get('raw_score', 0)}/6",
+                    f"{ms.get('contribution', 0):.1f}%",
+                    f"{ms.get('confidence', 0):.2f}"
+                ])
+            
+            module_table = Table(module_data, colWidths=[doc.width/3, doc.width/6, doc.width/6, doc.width/6])
+            module_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#9B59B6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F4F4')]),
+            ]))
+            
+            story.append(module_table)
+        else:
+            story.append(Paragraph("No module data available", normal_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # ========== FOR CONCISE REPORT: Skip to Conclusion ==========
+        if report_type == "concise":
+            # Add a few key examples
+            add_section_header(story, "Key Examples", level=2)
+            
+            examples_added = 0
+            
+            # Top AI phrases
+            if 'phrases' in results and results['phrases'].get('all_phrase_occurrences'):
+                occurrences = results['phrases']['all_phrase_occurrences']
+                if occurrences:
+                    story.append(Paragraph("AI Phrases:", metrics_style))
+                    for occ in occurrences[:3]:
+                        context = clean_text_for_pdf(occ.get('context', ''))[:150]
+                        story.append(Paragraph(f"• '{occ.get('phrase', '')}' → ...{context}...", example_style))
+                    examples_added += 1
+                    story.append(Spacer(1, 0.2*cm))
+            
+            # Enumerations
+            if 'enumeration' in results and results['enumeration'].get('all_enumerations'):
+                enumerations = results['enumeration']['all_enumerations']
+                if enumerations:
+                    story.append(Paragraph("Strict Enumerations:", metrics_style))
+                    for enum in enumerations[:3]:
+                        story.append(Paragraph(f"• {clean_text_for_pdf(enum)[:150]}...", example_style))
+                    examples_added += 1
+                    story.append(Spacer(1, 0.2*cm))
+            
+            if examples_added == 0:
+                story.append(Paragraph("No notable examples found", normal_style))
+            
+            story.append(Spacer(1, 0.5*cm))
+            
+            # Skip to conclusion
+            story.append(PageBreak())
+            add_section_header(story, "5. CONCLUSION & RECOMMENDATIONS", level=1, anchor="section5")
+        
+        # ========== FOR FULL REPORT: Detailed Analysis ==========
+        else:
+            # 3. DETAILED MODULE ANALYSIS
+            add_section_header(story, "3. DETAILED MODULE ANALYSIS", level=1, anchor="section3")
+            
+            # Unicode artifacts
+            if 'unicode' in results:
+                add_section_header(story, "3.1 Unicode Artifacts", level=2, anchor="section3.1")
+                unicode_data = results['unicode']
+                story.append(Paragraph(f"• Suspicious characters: {unicode_data.get('sup_sub_count', 0) + unicode_data.get('fullwidth_count', 0)}", normal_style))
+                story.append(Paragraph(f"• Density per 10k chars: {unicode_data.get('density_per_10k', 0):.2f}", normal_style))
+                
+                chunks = unicode_data.get('all_suspicious_chunks', [])
+                if chunks:
+                    story.append(Paragraph("Examples:", example_style))
+                    for chunk in chunks[:5]:
+                        context = clean_text_for_pdf(chunk.get('context', ''))[:150]
+                        story.append(Paragraph(f"  • '{chunk.get('char', '')}' → ...{context}...", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # AI phrases
+            if 'phrases' in results:
+                add_section_header(story, "3.2 AI Phrases", level=2, anchor="section3.2")
+                phrases_data = results['phrases']
+                occurrences = phrases_data.get('all_phrase_occurrences', [])
+                story.append(Paragraph(f"• Total occurrences: {len(occurrences)}", normal_style))
+                
+                if occurrences:
+                    story.append(Paragraph("Examples:", example_style))
+                    for occ in occurrences[:5]:
+                        context = clean_text_for_pdf(occ.get('context', ''))[:150]
+                        story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Enumerations
+            if 'enumeration' in results:
+                add_section_header(story, "3.3 Strict Enumerations", level=2, anchor="section3.3")
+                enum_data = results['enumeration']
+                enumerations = enum_data.get('all_enumerations', [])
+                story.append(Paragraph(f"• Found: {len(enumerations)} enumerations", normal_style))
+                
+                if enumerations:
+                    story.append(Paragraph("Examples:", example_style))
+                    for enum in enumerations[:5]:
+                        story.append(Paragraph(f"  • {clean_text_for_pdf(enum)[:200]}...", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Apostrophes
+            if 'apostrophe' in results:
+                add_section_header(story, "3.4 Apostrophe Usage", level=2, anchor="section3.4")
+                apost_data = results['apostrophe']
+                apostrophes = apost_data.get('all_apostrophes', [])
+                story.append(Paragraph(f"• Found: {len(apostrophes)} apostrophes", normal_style))
+                
+                if apostrophes:
+                    examples = ', '.join(apostrophes[:50])
+                    story.append(Paragraph(f"Examples: {examples}", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Punctuation
+            if 'punctuation' in results:
+                add_section_header(story, "3.5 Punctuation Analysis", level=2, anchor="section3.5")
+                punct_data = results['punctuation']
+                story.append(Paragraph(f"• Exclamation marks: {punct_data.get('exclamation_count', 0)}", normal_style))
+                story.append(Paragraph(f"• Question marks: {punct_data.get('question_count', 0)}", normal_style))
+                story.append(Paragraph(f"• Semicolons: {punct_data.get('semicolon_count', 0)}", normal_style))
+                
+                semicolons = punct_data.get('all_semicolon_contexts', [])
+                if semicolons:
+                    story.append(Paragraph("Semicolon contexts:", example_style))
+                    for ctx in semicolons[:3]:
+                        context = clean_text_for_pdf(ctx.get('context', ''))[:100]
+                        story.append(Paragraph(f"  • ...{context}...", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Parentheses
+            if 'parenthesis' in results:
+                add_section_header(story, "3.6 Parenthesis Analysis", level=2, anchor="section3.6")
+                paren_data = results['parenthesis']
+                parentheses = paren_data.get('all_parentheses', [])
+                story.append(Paragraph(f"• Long parentheses (≥5 words): {paren_data.get('long_parentheses', 0)}", normal_style))
+                
+                if parentheses:
+                    story.append(Paragraph("Examples:", example_style))
+                    for p in parentheses[:3]:
+                        text = clean_text_for_pdf(p.get('text', ''))[:100]
+                        story.append(Paragraph(f"  • ({text}) — {p.get('word_count', 0)} words", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Repetitions
+            if 'repetitiveness' in results:
+                add_section_header(story, "3.7 Repetitiveness Analysis", level=2, anchor="section3.7")
+                rep_data = results['repetitiveness']
+                repetitions = rep_data.get('all_repetitions', [])
+                story.append(Paragraph(f"• Found: {len(repetitions)} repeated phrases", normal_style))
+                
+                if repetitions:
+                    story.append(Paragraph("Top repetitions:", example_style))
+                    for rep in repetitions[:5]:
+                        story.append(Paragraph(f"  • '{rep.get('ngram', '')}' — {rep.get('count', 0)} times", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Dashes
+            if 'dashes' in results:
+                add_section_header(story, "3.8 Dash Analysis", level=2, anchor="section3.8")
+                dash_data = results['dashes']
+                dashes = dash_data.get('all_dash_sentences', [])
+                story.append(Paragraph(f"• Sentences with dashes: {len(dashes)}", normal_style))
+                
+                if dashes:
+                    story.append(Paragraph("Examples:", example_style))
+                    for d in dashes[:5]:
+                        sentence = clean_text_for_pdf(d.get('sentence', ''))[:100]
+                        story.append(Paragraph(f"  • Dashes: {d.get('dash_count', 0)} → ...{sentence}...", example_style))
+                story.append(Spacer(1, 0.2*cm))
+            
+            # Lexical diversity
+            if 'lexical_diversity' in results:
+                add_section_header(story, "3.9 Lexical Diversity", level=2, anchor="section3.9")
+                lex_data = results['lexical_diversity']
+                story.append(Paragraph(f"• TTR: {lex_data.get('ttr', 0):.3f}", normal_style))
+                if lex_data.get('mtld', 0) > 0:
+                    story.append(Paragraph(f"• MTLD: {lex_data.get('mtld', 0):.1f}", normal_style))
+                story.append(Paragraph(f"• Hapax ratio: {lex_data.get('hapax_ratio', 0):.3f}", normal_style))
+            
+            story.append(PageBreak())
+            
+            # 4. TEXT SAMPLES
+            add_section_header(story, "4. TEXT SAMPLES", level=1, anchor="section4")
+            
+            # First 5 sentences
+            add_section_header(story, "4.1 First 5 sentences", level=2)
+            for i, sent in enumerate(sentences[:5]):
+                clean_sent = clean_text_for_pdf(sent)[:200]
+                story.append(Paragraph(f"{i+1}. {clean_sent}...", example_style))
+            
+            story.append(Spacer(1, 0.5*cm))
+            
+            # High-risk examples
+            high_risk_examples = []
+            
+            if 'dashes' in results:
+                for item in results['dashes'].get('heavy_sentences', [])[:3]:
+                    high_risk_examples.append(("Heavy dash usage", item.get('sentence', '')))
+            
+            if 'enumeration' in results:
+                for enum in results['enumeration'].get('all_enumerations', [])[:3]:
+                    high_risk_examples.append(("Strict enumeration", enum))
+            
+            if 'phrases' in results:
+                for occ in results['phrases'].get('all_phrase_occurrences', [])[:3]:
+                    high_risk_examples.append(("AI phrase", occ.get('context', '')))
+            
+            if high_risk_examples:
+                add_section_header(story, "4.2 High-risk examples", level=2)
+                for i, (label, example) in enumerate(high_risk_examples[:5]):
+                    clean_example = clean_text_for_pdf(example)[:150]
+                    story.append(Paragraph(f"{label}: {clean_example}...", example_style))
+            
+            story.append(PageBreak())
+            
+            # 5. CONCLUSION & RECOMMENDATIONS
+            add_section_header(story, "5. CONCLUSION & RECOMMENDATIONS", level=1, anchor="section5")
+        
+        # ========== CONCLUSION (common for both report types) ==========
+        
+        # Interpretation
+        add_section_header(story, "Interpretation", level=2)
+        
+        if final_score < 30:
+            interpretation = [
+                "• LOW RISK: Text shows patterns consistent with human writing.",
+                "• High lexical diversity and natural variation in sentence structure.",
+                "• Presence of human markers (varied punctuation, hedging, personal pronouns)."
+            ]
+        elif final_score < 50:
+            interpretation = [
+                "• MEDIUM-LOW RISK: Some AI-like patterns detected.",
+                "• Moderate use of AI phrases and repetitive structures.",
+                "• Consider reviewing specific flagged sections."
+            ]
+        elif final_score < 70:
+            interpretation = [
+                "• MEDIUM-HIGH RISK: Significant AI-like patterns detected.",
+                "• High density of AI phrases and low lexical diversity.",
+                "• Multiple modules show elevated risk scores."
+            ]
+        else:
+            interpretation = [
+                "• HIGH RISK: Text shows strong AI generation patterns.",
+                "• Very low lexical diversity with high repetitiveness.",
+                "• Many characteristic AI phrases and structures present."
+            ]
+        
+        for line in interpretation:
+            story.append(Paragraph(line, normal_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Recommendations
+        add_section_header(story, "Recommendations", level=2)
+        
+        recommendations = [
+            "• Review the flagged examples in each module section",
+            "• Pay special attention to modules with raw scores ≥ 4/6",
+            "• Consider the context of the text (academic vs. casual writing)",
+            "• For research purposes, combine with other detection methods"
+        ]
+        
+        for rec in recommendations:
+            story.append(Paragraph(rec, normal_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Technical info
+        add_section_header(story, "Technical Details", level=2)
+        story.append(Paragraph(f"• Analysis timestamp: {current_date}", example_style))
+        story.append(Paragraph(f"• Modules with data: {', '.join([m.get('module', '') for m in module_scores[:5]])}", example_style))
+        story.append(Paragraph(f"• Confidence score: {integrated.get('total_confidence', 0):.2f}", example_style))
+    
+    # Footer
+    story.append(Spacer(1, 1*cm))
+    story.append(Paragraph("─" * 70, footer_style))
+    story.append(Paragraph("© CT(A)I-detector - Advanced AI Text Analysis Tool", footer_style))
+    story.append(Paragraph(f"Report ID: {hashlib.md5(str(datetime.now()).encode()).hexdigest()[:8].upper()}", footer_style))
+    
+    # Build PDF with watermark
+    if report_type == "full":
+        doc.build(story, onFirstPage=add_watermark, onLaterPages=add_watermark)
+    else:
+        doc.build(story)
+    
+    return buffer.getvalue()
+
+# ============================================================================
 # Main application
 # ============================================================================
 
@@ -4012,7 +4796,7 @@ def main():
                             st.code(f"Character '{chunk['char']}' ({chunk['type']}) → ...{chunk['context'][:150]}...")
             
             # Action buttons
-            col1, col2, col3 = st.columns([1, 1, 1])
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
             with col1:
                 if st.button("← New Analysis", use_container_width=True):
                     st.session_state.step = 1
@@ -4021,10 +4805,9 @@ def main():
                     st.rerun()
 
             with col2:
-                if st.button("📥 Export PDF Report", use_container_width=True):
-                    with st.spinner("Generating PDF report..."):
+                if st.button("📥 PDF Full Report", use_container_width=True):
+                    with st.spinner("Generating full PDF report..."):
                         try:
-                            # Prepare data for PDF
                             pdf_data = {
                                 'text': text,
                                 'sentences': sentences,
@@ -4032,29 +4815,55 @@ def main():
                                 'integrated': integrated
                             }
                             
-                            # Generate PDF
-                            pdf_bytes = generate_pdf_report(pdf_data)
+                            # Generate full report
+                            pdf_bytes = generate_enhanced_pdf_report(pdf_data, report_type="full")
                             
-                            # Create filename with timestamp
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            filename = f"ctai_detector_report_{timestamp}.pdf"
+                            filename = f"ctai_detector_full_report_{timestamp}.pdf"
                             
-                            # Download button
                             st.download_button(
-                                label="💾 Save PDF Report",
+                                label="💾 Save Full Report",
                                 data=pdf_bytes,
                                 file_name=filename,
                                 mime="application/pdf",
-                                key="pdf_download"
+                                key="pdf_full_download"
+                            )
+                        except Exception as e:
+                            st.error(f"Error generating PDF: {str(e)}")
+                            import traceback
+                            st.code(traceback.format_exc())
+
+            with col3:
+                if st.button("📄 PDF Concise Report", use_container_width=True):
+                    with st.spinner("Generating concise PDF report..."):
+                        try:
+                            pdf_data = {
+                                'text': text,
+                                'sentences': sentences,
+                                'results': results,
+                                'integrated': integrated
+                            }
+                            
+                            # Generate concise report
+                            pdf_bytes = generate_enhanced_pdf_report(pdf_data, report_type="concise")
+                            
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"ctai_detector_concise_report_{timestamp}.pdf"
+                            
+                            st.download_button(
+                                label="💾 Save Concise Report",
+                                data=pdf_bytes,
+                                file_name=filename,
+                                mime="application/pdf",
+                                key="pdf_concise_download"
                             )
                         except Exception as e:
                             st.error(f"Error generating PDF: {str(e)}")
                             import traceback
                             st.code(traceback.format_exc())
                     
-            with col3:
+            with col4:
                 st.empty()
-
 
 if __name__ == "__main__":
     main()
