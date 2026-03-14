@@ -24,6 +24,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import hashlib
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
 
 # Проверка наличия reportlab
 REPORTLAB_AVAILABLE = False
@@ -3150,7 +3151,41 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
     
     # ========== ТИТУЛЬНАЯ СТРАНИЦА ==========
     
-    story.append(Spacer(1, 3*cm))
+    story.append(Spacer(1, 2*cm))
+    
+    # Добавляем логотип
+    try:
+        # Пробуем несколько возможных путей
+        possible_paths = [
+            "logo.png",  # Текущая директория
+            "./logo.png",  # Относительный путь
+            "app/logo.png",  # Если в поддиректории
+            os.path.join(os.path.dirname(__file__), "logo.png"),  # Абсолютный путь
+            os.path.join(os.getcwd(), "logo.png")  # Текущая рабочая директория
+        ]
+        
+        logo_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                logo_path = path
+                break
+        
+        if logo_path:
+            # Используем Image из reportlab
+            logo = Image(logo_path, width=180, height=90)
+            logo.hAlign = 'CENTER'
+            story.append(logo)
+            story.append(Spacer(1, 1*cm))
+    except Exception as e:
+        # Если логотип не загрузился, показываем эмодзи
+        story.append(Paragraph("🔬", ParagraphStyle(
+            'LogoEmoji',
+            parent=styles['Heading1'],
+            fontSize=40,
+            textColor=colors.HexColor('#667eea'),
+            alignment=TA_CENTER
+        )))
+        story.append(Spacer(1, 0.5*cm))
     
     # Заголовок
     story.append(Paragraph("CT(A)I-detector", title_style))
