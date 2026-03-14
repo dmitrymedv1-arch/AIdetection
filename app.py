@@ -3322,7 +3322,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             if chunks:
                 story.append(Paragraph("Examples:", example_style))
                 for chunk in chunks[:5]:
-                    context = clean_text_for_pdf(chunk.get('context', ''))[:100]
+                    context = clean_text_for_pdf(chunk.get('context', ''))[:200]
                     story.append(Paragraph(f"  • '{chunk.get('char', '')}' → ...{context}...", example_style))
             story.append(Spacer(1, 0.3*cm))
         
@@ -3337,7 +3337,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             if occurrences:
                 story.append(Paragraph("Examples:", example_style))
                 for occ in occurrences[:5]:
-                    context = clean_text_for_pdf(occ.get('context', ''))[:100]
+                    context = clean_text_for_pdf(occ.get('context', ''))[:200]
                     story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
             story.append(Spacer(1, 0.3*cm))
         
@@ -3351,7 +3351,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             if enumerations:
                 story.append(Paragraph("Examples:", example_style))
                 for enum in enumerations[:5]:
-                    story.append(Paragraph(f"  • {clean_text_for_pdf(enum)[:150]}...", example_style))
+                    story.append(Paragraph(f"  • {clean_text_for_pdf(enum)[:250]}...", example_style))
             story.append(Spacer(1, 0.3*cm))
         
         # Апострофы
@@ -3363,7 +3363,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             story.append(Paragraph(f"• Per 1000 words: {apost_data.get('apostrophe_per_1000', 0):.2f}", normal_style))
             
             if apostrophes:
-                examples = ', '.join(apostrophes[:20])
+                examples = ', '.join(apostrophes[:100])
                 story.append(Paragraph(f"Examples: {examples}", example_style))
             story.append(Spacer(1, 0.3*cm))
         
@@ -3407,7 +3407,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             
             if repetitions:
                 story.append(Paragraph("Top repetitions:", example_style))
-                for rep in repetitions[:10]:
+                for rep in repetitions[:100]:
                     story.append(Paragraph(f"  • '{rep.get('ngram', '')}' — {rep.get('count', 0)} times", example_style))
             story.append(Spacer(1, 0.3*cm))
         
@@ -3455,22 +3455,22 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Из модуля dashes
         if 'dashes' in results:
-            for item in results['dashes'].get('heavy_sentences', [])[:3]:
+            for item in results['dashes'].get('heavy_sentences', [])[:30]:
                 high_risk_examples.append(("Heavy dash usage", item.get('sentence', '')))
         
         # Из модуля enumerations
         if 'enumeration' in results:
-            for enum in results['enumeration'].get('all_enumerations', [])[:3]:
+            for enum in results['enumeration'].get('all_enumerations', [])[:30]:
                 high_risk_examples.append(("Strict enumeration", enum))
         
         # Из модуля phrases
         if 'phrases' in results:
-            for occ in results['phrases'].get('all_phrase_occurrences', [])[:3]:
+            for occ in results['phrases'].get('all_phrase_occurrences', [])[:30]:
                 high_risk_examples.append(("AI phrase", occ.get('context', '')))
         
         if high_risk_examples:
             story.append(Paragraph("4.2 High-risk examples:", subsection_style))
-            for i, (label, example) in enumerate(high_risk_examples[:5]):
+            for i, (label, example) in enumerate(high_risk_examples[:50]):
                 clean_example = clean_text_for_pdf(example)[:200]
                 story.append(Paragraph(f"{label}: {clean_example}...", example_style))
         
