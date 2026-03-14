@@ -1784,7 +1784,7 @@ class GrammarAnalyzer:
             results['risk_level'] = 'low'
         
         # Passive examples
-        for match in passive_matches[:5]:
+        for match in passive_matches[:50]:
             results['examples'].append(f"...{' '.join(match)}...")
         
         return results
@@ -2991,7 +2991,7 @@ def format_authors(authors_list):
     
     # Если авторы в виде списка словарей или строк
     formatted = []
-    for author in authors_list[:5]:  # Берем первых 5 авторов
+    for author in authors_list[:5]:
         if isinstance(author, dict):
             # Если это словарь с ключом 'name'
             name = author.get('name', '')
@@ -3321,7 +3321,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             chunks = unicode_data.get('all_suspicious_chunks', [])
             if chunks:
                 story.append(Paragraph("Examples:", example_style))
-                for chunk in chunks[:5]:
+                for chunk in chunks[:50]:
                     context = clean_text_for_pdf(chunk.get('context', ''))[:200]
                     story.append(Paragraph(f"  • '{chunk.get('char', '')}' → ...{context}...", example_style))
             story.append(Spacer(1, 0.3*cm))
@@ -3336,7 +3336,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             
             if occurrences:
                 story.append(Paragraph("Examples:", example_style))
-                for occ in occurrences[:5]:
+                for occ in occurrences[:50]:
                     context = clean_text_for_pdf(occ.get('context', ''))[:200]
                     story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
             story.append(Spacer(1, 0.3*cm))
@@ -4108,7 +4108,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                 chunks = unicode_data.get('all_suspicious_chunks', [])
                 if chunks:
                     story.append(Paragraph("Examples:", example_style))
-                    for chunk in chunks[:5]:
+                    for chunk in chunks[:50]:
                         context = clean_text_for_pdf(chunk.get('context', ''))[:150]
                         story.append(Paragraph(f"  • '{chunk.get('char', '')}' → ...{context}...", example_style))
                 story.append(Spacer(1, 0.2*cm))
@@ -4122,7 +4122,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                 
                 if occurrences:
                     story.append(Paragraph("Examples:", example_style))
-                    for occ in occurrences[:5]:
+                    for occ in occurrences[:50]:
                         context = clean_text_for_pdf(occ.get('context', ''))[:150]
                         story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
                 story.append(Spacer(1, 0.2*cm))
@@ -4136,7 +4136,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                 
                 if enumerations:
                     story.append(Paragraph("Examples:", example_style))
-                    for enum in enumerations[:5]:
+                    for enum in enumerations[:50]:
                         story.append(Paragraph(f"  • {clean_text_for_pdf(enum)[:200]}...", example_style))
                 story.append(Spacer(1, 0.2*cm))
             
@@ -4191,7 +4191,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                 
                 if repetitions:
                     story.append(Paragraph("Top repetitions:", example_style))
-                    for rep in repetitions[:5]:
+                    for rep in repetitions[:50]:
                         story.append(Paragraph(f"  • '{rep.get('ngram', '')}' — {rep.get('count', 0)} times", example_style))
                 story.append(Spacer(1, 0.2*cm))
             
@@ -4204,7 +4204,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                 
                 if dashes:
                     story.append(Paragraph("Examples:", example_style))
-                    for d in dashes[:5]:
+                    for d in dashes[:50]:
                         sentence = clean_text_for_pdf(d.get('sentence', ''))[:100]
                         story.append(Paragraph(f"  • Dashes: {d.get('dash_count', 0)} → ...{sentence}...", example_style))
                 story.append(Spacer(1, 0.2*cm))
@@ -4225,7 +4225,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             # First 5 sentences
             add_section_header(story, "4.1 First 5 sentences", level=2)
-            for i, sent in enumerate(sentences[:5]):
+            for i, sent in enumerate(sentences[:50]):
                 clean_sent = clean_text_for_pdf(sent)[:200]
                 story.append(Paragraph(f"{i+1}. {clean_sent}...", example_style))
             
@@ -4248,7 +4248,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             if high_risk_examples:
                 add_section_header(story, "4.2 High-risk examples", level=2)
-                for i, (label, example) in enumerate(high_risk_examples[:5]):
+                for i, (label, example) in enumerate(high_risk_examples[:50]):
                     clean_example = clean_text_for_pdf(example)[:150]
                     story.append(Paragraph(f"{label}: {clean_example}...", example_style))
             
@@ -4310,7 +4310,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
         # Technical info
         add_section_header(story, "Technical Details", level=2)
         story.append(Paragraph(f"• Analysis timestamp: {current_date}", example_style))
-        story.append(Paragraph(f"• Modules with data: {', '.join([m.get('module', '') for m in module_scores[:5]])}", example_style))
+        story.append(Paragraph(f"• Modules with data: {', '.join([m.get('module', '') for m in module_scores[:50]])}", example_style))
         story.append(Paragraph(f"• Confidence score: {integrated.get('total_confidence', 0):.2f}", example_style))
     
     # Footer
