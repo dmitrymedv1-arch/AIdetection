@@ -3332,7 +3332,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             phrases_data = results['phrases']
             occurrences = phrases_data.get('all_phrase_occurrences', [])
             story.append(Paragraph(f"• Total occurrences: {len(occurrences)}", normal_style))
-            story.append(Paragraph(f"• Top phrases: {', '.join([p[0] for p in phrases_data.get('top_phrases', [])[:5]])}", normal_style))
+            story.append(Paragraph(f"• Top phrases: {', '.join([p[0] for p in phrases_data.get('top_phrases', [])[:50]])}", normal_style))
             
             if occurrences:
                 story.append(Paragraph("Examples:", example_style))
@@ -3393,7 +3393,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             
             if parentheses:
                 story.append(Paragraph("Examples:", example_style))
-                for p in parentheses[:5]:
+                for p in parentheses[:50]:
                     text = clean_text_for_pdf(p.get('text', ''))[:100]
                     story.append(Paragraph(f"  • ({text}) — {p.get('word_count', 0)} words", example_style))
             story.append(Spacer(1, 0.3*cm))
