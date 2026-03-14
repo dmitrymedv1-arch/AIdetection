@@ -13,6 +13,39 @@ import subprocess
 import sys
 import warnings
 import time
+import io
+from datetime import datetime
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import hashlib
+
+# Проверка наличия reportlab
+REPORTLAB_AVAILABLE = False
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    # Создаем заглушку для функции
+    def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
+        return None
+
+# Если reportlab не установлен, показываем предупреждение в интерфейсе
+if not REPORTLAB_AVAILABLE:
+    st.sidebar.warning(
+        "⚠️ PDF export requires reportlab. Install with: pip install reportlab"
+    )
 
 # Force CSS injection
 st.markdown("""
@@ -2946,6 +2979,536 @@ class DocumentProcessor:
         text = re.sub(r'\n\s*\n', '\n\n', text)
         return text.strip()
 
+def format_authors(authors_list):
+    """Форматирование списка авторов для PDF"""
+    if not authors_list:
+        return "N/A"
+    
+    # Если авторы уже в виде строки
+    if isinstance(authors_list, str):
+        return authors_list
+    
+    # Если авторы в виде списка словарей или строк
+    formatted = []
+    for author in authors_list[:5]:  # Берем первых 5 авторов
+        if isinstance(author, dict):
+            # Если это словарь с ключом 'name'
+            name = author.get('name', '')
+            if name:
+                # Форматируем имя: Фамилия И.О.
+                parts = name.split()
+                if len(parts) >= 2:
+                    last_name = parts[-1]
+                    initials = ' '.join([p[0] + '.' for p in parts[:-1]])
+                    formatted.append(f"{last_name} {initials}")
+                else:
+                    formatted.append(name)
+        elif isinstance(author, str):
+            formatted.append(author)
+    
+    result = ', '.join(formatted)
+    if len(authors_list) > 5:
+        result += f' et al. ({len(authors_list)} authors)'
+    
+    return result
+
+def clean_text_for_pdf(text):
+    """Очистка текста для PDF от HTML тегов и спецсимволов"""
+    if not text:
+        return ""
+    if not isinstance(text, str):
+        text = str(text)
+    # Удаляем HTML теги
+    text = re.sub(r'<[^>]+>', '', text)
+    # Заменяем специальные символы
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Убираем множественные пробелы
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
+    """Генерация PDF отчета с результатами анализа"""
+    
+    buffer = io.BytesIO()
+    
+    # Настройка документа
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        topMargin=1*cm,
+        bottomMargin=1*cm,
+        leftMargin=1.5*cm,
+        rightMargin=1.5*cm
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    # ========== СОЗДАНИЕ КАСТОМНЫХ СТИЛЕЙ ==========
+    
+    # Стиль для заголовка
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#2C3E50'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Стиль для подзаголовка
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#34495E'),
+        spaceAfter=8,
+        alignment=TA_CENTER,
+        fontName='Helvetica'
+    )
+    
+    # Стиль для мета-информации
+    meta_style = ParagraphStyle(
+        'CustomMeta',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#7F8C8D'),
+        spaceAfter=3,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Oblique'
+    )
+    
+    # Стиль для секций
+    section_style = ParagraphStyle(
+        'CustomSection',
+        parent=styles['Heading3'],
+        fontSize=14,
+        textColor=colors.HexColor('#2980B9'),
+        spaceAfter=10,
+        spaceBefore=15,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Стиль для подсекций
+    subsection_style = ParagraphStyle(
+        'CustomSubsection',
+        parent=styles['Heading4'],
+        fontSize=12,
+        textColor=colors.HexColor('#16A085'),
+        spaceAfter=6,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Стиль для обычного текста
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#2C3E50'),
+        spaceAfter=4,
+        alignment=TA_LEFT,
+        fontName='Helvetica'
+    )
+    
+    # Стиль для метрик
+    metrics_style = ParagraphStyle(
+        'CustomMetrics',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.HexColor('#27AE60'),
+        spaceAfter=2,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Стиль для примеров
+    example_style = ParagraphStyle(
+        'CustomExample',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#7F8C8D'),
+        spaceAfter=2,
+        leftIndent=20,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Oblique'
+    )
+    
+    # Стиль для нижнего колонтитула
+    footer_style = ParagraphStyle(
+        'CustomFooter',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#95A5A6'),
+        spaceBefore=15,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Oblique'
+    )
+    
+    story = []
+    
+    # ========== ТИТУЛЬНАЯ СТРАНИЦА ==========
+    
+    story.append(Spacer(1, 3*cm))
+    
+    # Заголовок
+    story.append(Paragraph("CT(A)I-detector", title_style))
+    story.append(Paragraph("Advanced AI Text Analysis Report", subtitle_style))
+    story.append(Spacer(1, 1*cm))
+    
+    # Мета-информация
+    current_date = datetime.now().strftime('%B %d, %Y at %H:%M')
+    story.append(Paragraph(f"Generated on {current_date}", meta_style))
+    
+    if results_data:
+        text = results_data.get('text', '')
+        sentences = results_data.get('sentences', [])
+        integrated = results_data.get('integrated', {})
+        
+        story.append(Paragraph(f"Total words analyzed: {len(text.split())}", meta_style))
+        story.append(Paragraph(f"Total sentences: {len(sentences)}", meta_style))
+        story.append(Paragraph(f"Risk score: {integrated.get('final_score', 0):.1f}/100", meta_style))
+        story.append(Paragraph(f"Risk level: {integrated.get('risk_level', 'unknown').replace('_', ' ').title()}", meta_style))
+    
+    story.append(Spacer(1, 3*cm))
+    story.append(Paragraph("© CT(A)I-detector", footer_style))
+    story.append(Paragraph("https://github.com/your-repo", footer_style))
+    
+    story.append(PageBreak())
+    
+    # ========== ОСНОВНОЙ ОТЧЕТ ==========
+    
+    if not results_data:
+        story.append(Paragraph("No data available for analysis", normal_style))
+    else:
+        text = results_data.get('text', '')
+        sentences = results_data.get('sentences', [])
+        results = results_data.get('results', {})
+        integrated = results_data.get('integrated', {})
+        
+        # 1. ОБЩИЙ СЧЕТ
+        story.append(Paragraph("1. OVERALL RISK ASSESSMENT", section_style))
+        
+        # Основная метрика
+        final_score = integrated.get('final_score', 0)
+        risk_level = integrated.get('risk_level', 'unknown').replace('_', ' ').title()
+        
+        # Определяем цвет на основе риска
+        if final_score < 30:
+            risk_color = '#27AE60'  # зеленый
+        elif final_score < 50:
+            risk_color = '#F39C12'  # оранжевый
+        elif final_score < 70:
+            risk_color = '#E67E22'  # темно-оранжевый
+        else:
+            risk_color = '#E74C3C'  # красный
+        
+        story.append(Paragraph(f"AI Risk Score: {final_score:.1f}/100", 
+                              ParagraphStyle('Score', parent=metrics_style, fontSize=16, textColor=colors.HexColor(risk_color))))
+        story.append(Paragraph(f"Risk Level: {risk_level}", metrics_style))
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Статистика текста
+        story.append(Paragraph("Text Statistics:", subsection_style))
+        
+        stats_data = [
+            ["Metric", "Value"],
+            ["Characters", len(text)],
+            ["Words", len(text.split())],
+            ["Sentences", len(sentences)],
+            ["Avg. sentence length", f"{len(text.split()) / max(len(sentences), 1):.1f} words"],
+            ["Modules analyzed", len(integrated.get('module_scores', []))]
+        ]
+        
+        stats_table = Table(stats_data, colWidths=[doc.width/2.5, doc.width/3])
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498DB')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8F9FA')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(stats_table)
+        story.append(Spacer(1, 0.5*cm))
+        
+        # 2. МОДУЛИ АНАЛИЗА
+        story.append(Paragraph("2. MODULE CONTRIBUTIONS", section_style))
+        
+        module_scores = integrated.get('module_scores', [])
+        if module_scores:
+            # Сортируем по вкладу
+            sorted_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)
+            
+            module_data = [["Module", "Raw Score", "Contribution", "Confidence"]]
+            for ms in sorted_modules[:10]:  # Топ-10 модулей
+                module_data.append([
+                    ms.get('module', 'unknown').replace('_', ' ').title(),
+                    f"{ms.get('raw_score', 0)}/6",
+                    f"{ms.get('contribution', 0):.1f}%",
+                    f"{ms.get('confidence', 0):.2f}"
+                ])
+            
+            module_table = Table(module_data, colWidths=[doc.width/3, doc.width/6, doc.width/6, doc.width/6])
+            module_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#9B59B6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F4F4')]),
+            ]))
+            
+            story.append(module_table)
+        else:
+            story.append(Paragraph("No module data available", normal_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # 3. ДЕТАЛЬНЫЙ АНАЛИЗ ПО МОДУЛЯМ
+        story.append(Paragraph("3. DETAILED MODULE ANALYSIS", section_style))
+        
+        # Unicode артефакты
+        if 'unicode' in results:
+            story.append(Paragraph("3.1 Unicode Artifacts", subsection_style))
+            unicode_data = results['unicode']
+            story.append(Paragraph(f"• Suspicious characters: {unicode_data.get('sup_sub_count', 0) + unicode_data.get('fullwidth_count', 0)}", normal_style))
+            story.append(Paragraph(f"• Density per 10k chars: {unicode_data.get('density_per_10k', 0):.2f}", normal_style))
+            story.append(Paragraph(f"• Risk score: {unicode_data.get('risk_score', 0)}/6", normal_style))
+            
+            # Примеры
+            chunks = unicode_data.get('all_suspicious_chunks', [])
+            if chunks:
+                story.append(Paragraph("Examples:", example_style))
+                for chunk in chunks[:5]:
+                    context = clean_text_for_pdf(chunk.get('context', ''))[:100]
+                    story.append(Paragraph(f"  • '{chunk.get('char', '')}' → ...{context}...", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # AI фразы
+        if 'phrases' in results:
+            story.append(Paragraph("3.2 AI Phrases", subsection_style))
+            phrases_data = results['phrases']
+            occurrences = phrases_data.get('all_phrase_occurrences', [])
+            story.append(Paragraph(f"• Total occurrences: {len(occurrences)}", normal_style))
+            story.append(Paragraph(f"• Top phrases: {', '.join([p[0] for p in phrases_data.get('top_phrases', [])[:5]])}", normal_style))
+            
+            if occurrences:
+                story.append(Paragraph("Examples:", example_style))
+                for occ in occurrences[:5]:
+                    context = clean_text_for_pdf(occ.get('context', ''))[:100]
+                    story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Перечисления
+        if 'enumeration' in results:
+            story.append(Paragraph("3.3 Strict Enumerations", subsection_style))
+            enum_data = results['enumeration']
+            enumerations = enum_data.get('all_enumerations', [])
+            story.append(Paragraph(f"• Found: {len(enumerations)} enumerations", normal_style))
+            
+            if enumerations:
+                story.append(Paragraph("Examples:", example_style))
+                for enum in enumerations[:5]:
+                    story.append(Paragraph(f"  • {clean_text_for_pdf(enum)[:150]}...", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Апострофы
+        if 'apostrophe' in results:
+            story.append(Paragraph("3.4 Apostrophe Usage", subsection_style))
+            apost_data = results['apostrophe']
+            apostrophes = apost_data.get('all_apostrophes', [])
+            story.append(Paragraph(f"• Found: {len(apostrophes)} apostrophes", normal_style))
+            story.append(Paragraph(f"• Per 1000 words: {apost_data.get('apostrophe_per_1000', 0):.2f}", normal_style))
+            
+            if apostrophes:
+                examples = ', '.join(apostrophes[:20])
+                story.append(Paragraph(f"Examples: {examples}", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Пунктуация
+        if 'punctuation' in results:
+            story.append(Paragraph("3.5 Punctuation Analysis", subsection_style))
+            punct_data = results['punctuation']
+            story.append(Paragraph(f"• Exclamation marks: {punct_data.get('exclamation_count', 0)}", normal_style))
+            story.append(Paragraph(f"• Question marks: {punct_data.get('question_count', 0)}", normal_style))
+            story.append(Paragraph(f"• Semicolons: {punct_data.get('semicolon_count', 0)}", normal_style))
+            
+            semicolons = punct_data.get('all_semicolon_contexts', [])
+            if semicolons:
+                story.append(Paragraph("Semicolon contexts:", example_style))
+                for ctx in semicolons[:3]:
+                    context = clean_text_for_pdf(ctx.get('context', ''))[:100]
+                    story.append(Paragraph(f"  • ...{context}...", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Скобки
+        if 'parenthesis' in results:
+            story.append(Paragraph("3.6 Parenthesis Analysis", subsection_style))
+            paren_data = results['parenthesis']
+            parentheses = paren_data.get('all_parentheses', [])
+            story.append(Paragraph(f"• Long parentheses (≥5 words): {paren_data.get('long_parentheses', 0)}", normal_style))
+            story.append(Paragraph(f"• Percentage: {paren_data.get('long_percentage', 0):.1f}%", normal_style))
+            
+            if parentheses:
+                story.append(Paragraph("Examples:", example_style))
+                for p in parentheses[:5]:
+                    text = clean_text_for_pdf(p.get('text', ''))[:100]
+                    story.append(Paragraph(f"  • ({text}) — {p.get('word_count', 0)} words", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Повторы
+        if 'repetitiveness' in results:
+            story.append(Paragraph("3.7 Repetitiveness Analysis", subsection_style))
+            rep_data = results['repetitiveness']
+            repetitions = rep_data.get('all_repetitions', [])
+            story.append(Paragraph(f"• Found: {len(repetitions)} repeated phrases", normal_style))
+            
+            if repetitions:
+                story.append(Paragraph("Top repetitions:", example_style))
+                for rep in repetitions[:10]:
+                    story.append(Paragraph(f"  • '{rep.get('ngram', '')}' — {rep.get('count', 0)} times", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Тире
+        if 'dashes' in results:
+            story.append(Paragraph("3.8 Dash Analysis", subsection_style))
+            dash_data = results['dashes']
+            dashes = dash_data.get('all_dash_sentences', [])
+            story.append(Paragraph(f"• Sentences with dashes: {len(dashes)}", normal_style))
+            story.append(Paragraph(f"• Heavy sentences: {len(dash_data.get('heavy_sentences', []))}", normal_style))
+            
+            if dashes:
+                story.append(Paragraph("Examples:", example_style))
+                for d in dashes[:5]:
+                    sentence = clean_text_for_pdf(d.get('sentence', ''))[:100]
+                    story.append(Paragraph(f"  • Dashes: {d.get('dash_count', 0)} → ...{sentence}...", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
+        # Лексическое разнообразие
+        if 'lexical_diversity' in results:
+            story.append(Paragraph("3.9 Lexical Diversity", subsection_style))
+            lex_data = results['lexical_diversity']
+            story.append(Paragraph(f"• TTR: {lex_data.get('ttr', 0):.3f}", normal_style))
+            if lex_data.get('mtld', 0) > 0:
+                story.append(Paragraph(f"• MTLD: {lex_data.get('mtld', 0):.1f}", normal_style))
+            if lex_data.get('mattr', 0) > 0:
+                story.append(Paragraph(f"• MATTR: {lex_data.get('mattr', 0):.3f}", normal_style))
+            story.append(Paragraph(f"• Hapax ratio: {lex_data.get('hapax_ratio', 0):.3f}", normal_style))
+        
+        story.append(PageBreak())
+        
+        # 4. ПРИМЕРЫ ТЕКСТА
+        story.append(Paragraph("4. TEXT SAMPLES", section_style))
+        
+        # Первые 5 предложений
+        story.append(Paragraph("4.1 First 5 sentences:", subsection_style))
+        for i, sent in enumerate(sentences[:5]):
+            clean_sent = clean_text_for_pdf(sent)[:200]
+            story.append(Paragraph(f"{i+1}. {clean_sent}...", example_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Предложения с высоким риском
+        high_risk_examples = []
+        
+        # Из модуля dashes
+        if 'dashes' in results:
+            for item in results['dashes'].get('heavy_sentences', [])[:3]:
+                high_risk_examples.append(("Heavy dash usage", item.get('sentence', '')))
+        
+        # Из модуля enumerations
+        if 'enumeration' in results:
+            for enum in results['enumeration'].get('all_enumerations', [])[:3]:
+                high_risk_examples.append(("Strict enumeration", enum))
+        
+        # Из модуля phrases
+        if 'phrases' in results:
+            for occ in results['phrases'].get('all_phrase_occurrences', [])[:3]:
+                high_risk_examples.append(("AI phrase", occ.get('context', '')))
+        
+        if high_risk_examples:
+            story.append(Paragraph("4.2 High-risk examples:", subsection_style))
+            for i, (label, example) in enumerate(high_risk_examples[:5]):
+                clean_example = clean_text_for_pdf(example)[:200]
+                story.append(Paragraph(f"{label}: {clean_example}...", example_style))
+        
+        story.append(PageBreak())
+        
+        # 5. ЗАКЛЮЧЕНИЕ
+        story.append(Paragraph("5. CONCLUSION & RECOMMENDATIONS", section_style))
+        
+        # Интерпретация результата
+        story.append(Paragraph("Interpretation:", subsection_style))
+        
+        if final_score < 30:
+            interpretation = [
+                "• LOW RISK: Text shows patterns consistent with human writing.",
+                "• High lexical diversity and natural variation in sentence structure.",
+                "• Presence of human markers (varied punctuation, hedging, personal pronouns)."
+            ]
+        elif final_score < 50:
+            interpretation = [
+                "• MEDIUM-LOW RISK: Some AI-like patterns detected.",
+                "• Moderate use of AI phrases and repetitive structures.",
+                "• Consider reviewing specific flagged sections."
+            ]
+        elif final_score < 70:
+            interpretation = [
+                "• MEDIUM-HIGH RISK: Significant AI-like patterns detected.",
+                "• High density of AI phrases and low lexical diversity.",
+                "• Multiple modules show elevated risk scores."
+            ]
+        else:
+            interpretation = [
+                "• HIGH RISK: Text shows strong AI generation patterns.",
+                "• Very low lexical diversity with high repetitiveness.",
+                "• Many characteristic AI phrases and structures present."
+            ]
+        
+        for line in interpretation:
+            story.append(Paragraph(line, normal_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Рекомендации
+        story.append(Paragraph("Recommendations:", subsection_style))
+        
+        recommendations = [
+            "• Review the flagged examples in each module section",
+            "• Pay special attention to modules with raw scores ≥ 4/6",
+            "• Consider the context of the text (academic vs. casual writing)",
+            "• For research purposes, combine with other detection methods"
+        ]
+        
+        for rec in recommendations:
+            story.append(Paragraph(rec, normal_style))
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Техническая информация
+        story.append(Paragraph("Technical Details:", subsection_style))
+        story.append(Paragraph(f"• Analysis timestamp: {current_date}", example_style))
+        story.append(Paragraph(f"• Modules with data: {', '.join([m.get('module', '') for m in module_scores[:8]])}", example_style))
+        story.append(Paragraph(f"• Confidence score: {integrated.get('total_confidence', 0):.2f}", example_style))
+    
+    # Нижний колонтитул
+    story.append(Spacer(1, 1*cm))
+    story.append(Paragraph("─" * 70, footer_style))
+    story.append(Paragraph("© CT(A)I-detector - Advanced AI Text Analysis Tool", footer_style))
+    story.append(Paragraph(f"Report ID: {hashlib.md5(str(datetime.now()).encode()).hexdigest()[:8].upper()}", footer_style))
+    
+    # Генерация PDF
+    doc.build(story)
+    
+    return buffer.getvalue()
 
 # ============================================================================
 # Main application
@@ -3422,25 +3985,38 @@ def main():
                     st.session_state.analyze_clicked = False
                     st.session_state.file_uploaded = False
                     st.rerun()
+
             with col2:
-                if st.button("📥 Export Results", use_container_width=True):
-                    # Create export data
-                    export_data = {
-                        'integrated_score': integrated['final_score'],
-                        'risk_level': integrated['risk_level'],
-                        'module_scores': integrated['module_scores'],
-                        'statistics': {
-                            'sentences': len(sentences),
-                            'words': len(text.split()),
-                            'characters': len(text)
-                        }
-                    }
-                    st.download_button(
-                        label="Download JSON",
-                        data=str(export_data),
-                        file_name="analysis_results.json",
-                        mime="application/json"
-                    )
+                if st.button("📥 Export PDF Report", use_container_width=True):
+                    with st.spinner("Generating PDF report..."):
+                        try:
+                            # Prepare data for PDF
+                            pdf_data = {
+                                'text': text,
+                                'sentences': sentences,
+                                'results': results,
+                                'integrated': integrated
+                            }
+                            
+                            # Generate PDF
+                            pdf_bytes = generate_pdf_report(pdf_data)
+                            
+                            # Create filename with timestamp
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"ctai_detector_report_{timestamp}.pdf"
+                            
+                            # Download button
+                            st.download_button(
+                                label="💾 Save PDF Report",
+                                data=pdf_bytes,
+                                file_name=filename,
+                                mime="application/pdf",
+                                key="pdf_download"
+                            )
+                        except Exception as e:
+                            st.error(f"Error generating PDF: {str(e)}")
+                            import traceback
+                            st.code(traceback.format_exc())
                     
             with col3:
                 st.empty()
