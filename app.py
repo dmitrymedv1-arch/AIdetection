@@ -3664,9 +3664,13 @@ def create_module_bar_chart(module_scores, width=450, height=200):
     
     return drawing
 
-def add_horizontal_rule(story, width=None, thickness=1, color=colors.HexColor('#BDC3C7')):
-    """Add a horizontal line separator"""
+def add_horizontal_rule(story, width=None, thickness=1, color=None):
+    """Add a horizontal line separator with default color if None provided"""
     from reportlab.platypus import Flowable
+    
+    # Устанавливаем цвет по умолчанию, если передан None
+    if color is None:
+        color = colors.HexColor('#BDC3C7')
     
     class HRFlowable(Flowable):
         def __init__(self, width, thickness=1, color=colors.black):
