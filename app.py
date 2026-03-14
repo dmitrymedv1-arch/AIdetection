@@ -3209,24 +3209,40 @@ def main():
                     <h4 style="margin-top: 0;">Sample Statistics</h4>
                 """, unsafe_allow_html=True)
                 
-                metrics_html = '<div class="metric-grid">'
-                metrics = [
-                    ("Sentences", len(sentences), ""),
-                    ("Words", len(text.split()), ""),
-                    ("Characters", len(text), ""),
-                    ("Modules", len(integrated['module_scores']), "")
-                ]
+                # Создаем колонки Streamlit вместо ручного HTML
+                col_metrics = st.columns(4)
                 
-                for label, value, unit in metrics:
-                    metrics_html += f"""
+                with col_metrics[0]:
+                    st.markdown(f"""
                     <div class="metric-card">
-                        <div class="metric-title">{label}</div>
-                        <div class="metric-value">{value}<span class="metric-unit">{unit}</span></div>
+                        <div class="metric-title">Sentences</div>
+                        <div class="metric-value">{len(sentences)}<span class="metric-unit"></span></div>
                     </div>
-                    """
+                    """, unsafe_allow_html=True)
                 
-                metrics_html += '</div></div>'
-                st.markdown(metrics_html, unsafe_allow_html=True)
+                with col_metrics[1]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-title">Words</div>
+                        <div class="metric-value">{len(text.split())}<span class="metric-unit"></span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col_metrics[2]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-title">Characters</div>
+                        <div class="metric-value">{len(text)}<span class="metric-unit"></span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col_metrics[3]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-title">Modules</div>
+                        <div class="metric-value">{len(integrated['module_scores'])}<span class="metric-unit"></span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
             
             # Module spectrum
             st.markdown("""
