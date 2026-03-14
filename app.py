@@ -3172,7 +3172,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         if logo_path:
             # Используем Image из reportlab
-            logo = Image(logo_path, width=180, height=90)
+            logo = Image(logo_path, width=270, height=135)
             logo.hAlign = 'CENTER'
             story.append(logo)
             story.append(Spacer(1, 1*cm))
