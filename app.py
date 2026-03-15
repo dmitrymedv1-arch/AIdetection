@@ -2882,15 +2882,15 @@ class IntegratedRiskScorer:
         
         # Определяем уровень риска
         risk_level = 'unknown'
-        if final_score < 20:
+        if final_score < 15:
             risk_level = 'very_low'
-        elif final_score < 35:
+        elif final_score < 20:
             risk_level = 'low'
-        elif final_score < 50:
+        elif final_score < 30:
             risk_level = 'medium-low'
-        elif final_score < 65:
+        elif final_score < 40:
             risk_level = 'medium'
-        elif final_score < 80:
+        elif final_score < 50:
             risk_level = 'medium-high'
         else:
             risk_level = 'high'
