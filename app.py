@@ -4948,9 +4948,34 @@ def main():
                                 st.code(f"'{chunk['char']}' → ...{chunk['context'][:100]}...")
                     
                     if 'dashes' in results:
-                        with st.expander(f"Dashes ({len(results['dashes']['all_dash_sentences'])} found)"):
-                            for item in results['dashes']['all_dash_sentences'][:30]:
-                                st.info(f"Dashes: {item['dash_count']} → {item['sentence'][:150]}")
+                        dash_data = results['dashes']
+                        total_dashes = len(dash_data.get('all_dash_sentences', []))
+                        double_dashes = len(dash_data.get('double_dash_sentences', []))
+                        
+                        with st.expander(f"— Dashes ({total_dashes} sentences with dashes, {double_dashes} with TWO dashes)"):
+                            
+                            # Сначала показываем предложения с двумя тире (как вы просили)
+                            if dash_data.get('double_dash_sentences'):
+                                st.markdown("### 🔴 Sentences with TWO dashes (— —)")
+                                for i, item in enumerate(dash_data['double_dash_sentences']):
+                                    # ПОЛНОЕ предложение, без обрезки
+                                    st.markdown(f"**{i+1}.** {item['sentence']}")
+                                    st.caption(f"*Sentence {item.get('sentence_idx', i)}, words: {item['word_count']}*")
+                                    if i < len(dash_data['double_dash_sentences']) - 1:
+                                        st.divider()
+                            
+                            # Затем показываем все остальные предложения с тире
+                            other_dashes = [d for d in dash_data.get('all_dash_sentences', []) 
+                                           if d.get('dash_count', 0) != 2]
+                            if other_dashes:
+                                if dash_data.get('double_dash_sentences'):
+                                    st.markdown("### Other sentences with dashes")
+                                for i, item in enumerate(other_dashes):
+                                    # ПОЛНОЕ предложение, без обрезки
+                                    st.markdown(f"**{i+1}.** {item['sentence']}")
+                                    st.caption(f"*Dashes: {item['dash_count']}, words: {item['word_count']}*")
+                                    if i < len(other_dashes) - 1:
+                                        st.divider()
                 
                 with col2:
                     if 'punctuation' in results:
