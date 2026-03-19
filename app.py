@@ -828,7 +828,7 @@ class UnicodeArtifactDetector:
         return results
 
 class DashAnalyzer:
-    """Multiple long dash analysis (level 1)"""
+    """Multiple long dash analysis (level 1) - modified to store ALL sentences with dashes"""
     
     def __init__(self):
         self.em_dash = '—'  # U+2014
@@ -839,7 +839,8 @@ class DashAnalyzer:
             'total_sentences': len(sentences),
             'sentences_with_multiple_dashes': [],
             'heavy_sentences': [],
-            'all_dash_sentences': [],  # All sentences with dashes
+            'all_dash_sentences': [],  # ВСЕ предложения с тире (без ограничений)
+            'double_dash_sentences': [],  # Специально для предложений с двумя тире
             'percentage_heavy': 0,
             'examples': [],
             'risk_level': 'none',
@@ -858,65 +859,71 @@ class DashAnalyzer:
         
         dash_counts = []
         
-        for sent in sentences:
+        for sent_idx, sent in enumerate(sentences):
             if not sent or len(sent.strip()) == 0:
                 continue
                 
             dash_count = sent.count(self.em_dash)
             dash_counts.append(dash_count)
             word_count = len(sent.split())
-            is_heavy = False
             
+            # Определяем "тяжелые" предложения
+            is_heavy = False
             if dash_count >= 3:
                 is_heavy = True
             elif dash_count >= 2 and word_count > 90:
                 is_heavy = True
             
             sent_data = {
-                'sentence': sent[:200] + '...' if len(sent) > 200 else sent,
+                'sentence_idx': sent_idx,
+                'sentence': sent,  # ПОЛНОЕ предложение, без обрезки
                 'dash_count': dash_count,
-                'word_count': word_count
+                'word_count': word_count,
+                'is_heavy': is_heavy
             }
             
-            # Save all sentences with dashes
+            # Сохраняем ВСЕ предложения с тире
             if dash_count > 0:
                 results['all_dash_sentences'].append(sent_data)
+            
+            # Специально для предложений с двумя тире (ваш конкретный запрос)
+            if dash_count == 2:
+                results['double_dash_sentences'].append(sent_data)
             
             if dash_count >= 2:
                 results['sentences_with_multiple_dashes'].append(sent_data)
             
             if is_heavy:
                 results['heavy_sentences'].append(sent_data)
-                if len(results['examples']) < 5:
-                    results['examples'].append(sent[:150])
+                if len(results['examples']) < 20:  # Оставляем ограничение для кратких примеров
+                    results['examples'].append(sent[:200])
         
         if sentences:
             results['percentage_heavy'] = (len(results['heavy_sentences']) / len(sentences)) * 100
             
-            # Distribution statistics
+            # Статистика распределения
             if dash_counts:
                 results['statistics']['mean_dashes_per_sentence'] = float(np.mean(dash_counts))
                 results['statistics']['median_dashes_per_sentence'] = float(np.median(dash_counts))
                 results['statistics']['max_dashes_in_sentence'] = float(np.max(dash_counts))
-                results['statistics']['distribution'] = dash_counts[:100]
+                results['statistics']['distribution'] = dash_counts[:200]
         
-        # Probabilistic risk assessment - УВЕЛИЧЕННЫЕ ЗНАЧЕНИЯ
+        # Оценка риска
         risk_score = 0
         confidence = 0.5
         
         if results['percentage_heavy'] > 5:
-            risk_score = 4                      # было 3, стало 4
+            risk_score = 4
             confidence = 0.85
         elif results['percentage_heavy'] > 2:
-            risk_score = 3                      # было 2, стало 3
+            risk_score = 3
             confidence = 0.7
         elif results['percentage_heavy'] > 0:
-            risk_score = 2                      # было 1, стало 2
+            risk_score = 2
             confidence = 0.6
         
-        # If many sentences with dashes but not heavy - also suspicious
         if len(results['sentences_with_multiple_dashes']) > len(sentences) * 0.1:
-            risk_score = max(risk_score, 3)      # было 2, стало 3
+            risk_score = max(risk_score, 3)
             confidence = min(confidence + 0.1, 1.0)
         
         results['risk_score'] = risk_score
@@ -1112,6 +1119,190 @@ class AIPhraseDetector:
         
         return results
 
+class TorturedPhraseDetector:
+    """Detector for tortured phrases - distorted academic terminology"""
+    
+    def __init__(self):
+        # Dictionary of correct terms -> list of tortured variations
+        self.tortured_phrases = {
+            # Chemistry
+            'amino acid': ['amino corrosive'],
+            'ascorbic acid': ['ascorbic corrosive'],
+            'hydrochloric acid': ['hydrochloric corrosive'],
+            'nitric acid': ['nitric corrosive'],
+            'sulfuric acid': ['sulfuric corrosive'],
+            'acetic acid': ['acetic corrosive'],
+            'citric acid': ['citric corrosive'],
+            'phosphoric acid': ['phosphoric corrosive'],
+            'formic acid': ['formic corrosive'],
+            'lactic acid': ['lactic corrosive'],
+            'nucleic acid': ['nucleic corrosive'],
+            'aqueous solution': ['watery arrangement', 'watery solution'],
+            'ph neutral': ['impartial ph', 'neutral ph', 'ph impartial'],
+            
+            # Physics/Materials
+            'surface area': ['surface region', 'surface territory'],
+            'thermal conductivity': ['warm conductivity', 'full conductivity', 'common conductivity', 'general conductivity'],
+            'heat transfer': ['warmth move', 'heat move'],
+            'heat exchanger': ['warmth exchanger'],
+            'thermal conductivity': ['warm conductivity'],
+            'turbulent flow': ['turbulant flow', 'turbulent stream'],
+            'boundary layer': ['limit layer'],
+            'computational fluid dynamics': ['computational liquid elements'],
+            'energy consumption': ['vitality utilization', 'energy utilization'],
+            'energy efficiency': ['vitality effective', 'energy effective'],
+            'energy saving': ['vitality sparing', 'energy sparing'],
+            'residual energy': ['remaining vitality', 'leftover vitality'],
+            'magnetic resonance': ['attractive reverberation'],
+            
+            # Medical/Imaging
+            'computed tomography': ['processed tomography', 'figured tomography', 'ct'],
+            'magnetic resonance imaging': ['attractive reverberation imaging', 'mri'],
+            
+            # Environmental
+            'greenhouse gas': ['ozone harming substance', 'ozone depleting substance'],
+            'greenhouse gas emissions': ['ozone harming substance discharge', 'ozone depleting substance emissions'],
+            'global warming': ['an earth-wide temperature boost', 'earth wide temperature boost'],
+            'solar energy': ['sun oriented energy', 'sunlight-based energy'],
+            'alternative energy': ['elective energy'],
+            'environmental degradation': ['ecological corruption', 'natural debasement'],
+            'heavy metals': ['substantial metals'],
+            
+            # Nanotechnology
+            'polymeric nanofiber': ['polymeric nanofiber'],
+            'quantum dots': ['quantum dabs'],
+            'drug delivery': ['medication conveyance'],
+            'negatively charged': ['contrarily charged', 'negatively charged'],
+            'transition metal': ['progress metal'],
+            
+            # AI/CS
+            'artificial intelligence': ['counterfeit consciousness', 'artificial consciousness'],
+            'deep neural network': ['profound neural organization', 'deep neural organization'],
+            'workflow engine': ['work process motor'],
+            'global parameters': ['worldwide parameters'],
+            
+            # Common tortured phrases
+            'certification': ['sertification'],
+            'methodology': ['methodologie', 'methodolgy'],
+            'analysis': ['analysys', 'analisys'],
+            'synthesis': ['synthethis', 'syntesis'],
+            'characterization': ['characterisation', 'characterisation'],
+            'significant': ['significent', 'signifcant'],
+            'important': ['importent', 'importnant'],
+            'demonstrate': ['demonstate', 'demostrate'],
+        }
+        
+        # Flatten for easier searching
+        self.all_tortured = []
+        self.tortured_to_correct = {}
+        for correct, tortured_list in self.tortured_phrases.items():
+            for tortured in tortured_list:
+                self.all_tortured.append(tortured)
+                self.tortured_to_correct[tortured] = correct
+    
+    def analyze(self, text: str) -> Dict:
+        """Analyze text for tortured phrases"""
+        results = {
+            'tortured_phrases_found': [],
+            'all_occurrences': [],  # Все найденные вхождения с контекстом
+            'unique_tortured_count': 0,
+            'total_occurrences': 0,
+            'tortured_per_1000_words': 0,
+            'examples': [],
+            'risk_score': 0,
+            'confidence': 0,
+            'risk_level': 'none',
+            'statistics': {
+                'distribution': {}
+            }
+        }
+        
+        if not text:
+            return results
+        
+        text_lower = text.lower()
+        words = text.split()
+        total_words = len(words)
+        
+        # Search for each tortured phrase
+        for tortured in self.all_tortured:
+            # Use word boundary to avoid partial matches
+            pattern = r'\b' + re.escape(tortured) + r'\b'
+            matches = list(re.finditer(pattern, text_lower))
+            
+            if matches:
+                correct_term = self.tortured_to_correct[tortured]
+                
+                # Сохраняем каждое вхождение
+                for match in matches[:20]:  # Лимит на однотипные для производительности
+                    start_pos = match.start()
+                    # Получаем контекст (предложение или окружающий текст)
+                    context_start = max(0, text_lower.rfind('.', 0, start_pos))
+                    context_end = text_lower.find('.', start_pos + len(tortured))
+                    if context_end == -1:
+                        context_end = len(text)
+                    context = text[context_start:context_end+1].strip()
+                    
+                    occurrence = {
+                        'tortured': tortured,
+                        'correct': correct_term,
+                        'context': context[:300] if len(context) > 300 else context,
+                        'position': start_pos
+                    }
+                    results['all_occurrences'].append(occurrence)
+                    
+                    if len(results['examples']) < 50:
+                        results['examples'].append({
+                            'tortured': tortured,
+                            'correct': correct_term,
+                            'context': context[:200]
+                        })
+                
+                # Сохраняем статистику по фразе
+                results['tortured_phrases_found'].append({
+                    'tortured': tortured,
+                    'correct': correct_term,
+                    'count': len(matches)
+                })
+                
+                results['total_occurrences'] += len(matches)
+        
+        results['unique_tortured_count'] = len(results['tortured_phrases_found'])
+        
+        # Normalize per 1000 words
+        if total_words > 0:
+            results['tortured_per_1000_words'] = (results['total_occurrences'] * 1000) / total_words
+        
+        # Risk assessment
+        risk_score = 0
+        confidence = 0.5
+        
+        if results['total_occurrences'] > 10:
+            risk_score = 6  # Максимальный риск - явные признаки tortured phrases
+            confidence = 1.0
+        elif results['total_occurrences'] > 5:
+            risk_score = 5
+            confidence = 0.95
+        elif results['total_occurrences'] > 2:
+            risk_score = 4
+            confidence = 0.85
+        elif results['total_occurrences'] > 0:
+            risk_score = 3
+            confidence = 0.7
+        
+        results['risk_score'] = risk_score
+        results['confidence'] = confidence
+        
+        if risk_score >= 5:
+            results['risk_level'] = 'critical'
+        elif risk_score >= 4:
+            results['risk_level'] = 'high'
+        elif risk_score >= 3:
+            results['risk_level'] = 'medium'
+        elif risk_score >= 1:
+            results['risk_level'] = 'low'
+        
+        return results
 
 class BurstinessAnalyzer:
     """Sentence length variability analysis (level 2) - updated with Yule's I"""
@@ -2258,11 +2449,12 @@ class ApostropheAnalyzer:
         return results
 
 class EnumerationAnalyzer:
-    """Strict enumeration analysis (improved version)"""
+    """Strict enumeration analysis - improved version that catches all three-item enumerations"""
     
     def __init__(self):
-        # Improved pattern for enumerations: phrase, phrase, and phrase
-        self.enumeration_pattern = r'(\b[^,]+(?:,\s+[^,]+)+,\s+and\s+[^,]+\.?)'
+        # Pattern for three-item enumerations: X, Y, and Z
+        # Allows for multi-word items with spaces
+        self.enumeration_pattern = r'([^,]+(?:,\s+[^,]+)+,\s+and\s+[^,]+)'
         # Pattern for enumerations with specifically
         self.specifically_pattern = r'\bspecifically\s+[^,]+,\s+[^,]+,\s+and\s+[^,]+'
     
@@ -2273,7 +2465,8 @@ class EnumerationAnalyzer:
             'three_item_per_1000_sentences': 0,
             'specifically_count': 0,
             'examples': [],
-            'all_enumerations': [],  # All found enumerations
+            'all_enumerations': [],  # Все найденные перечисления с полным контекстом
+            'invalid_enumerations': [],  # Перечисления с 4+ элементами (для отладки)
             'risk_level': 'none',
             'risk_score': 0,
             'confidence': 0,
@@ -2289,55 +2482,82 @@ class EnumerationAnalyzer:
         
         total_sentences = len(sentences)
         
-        # Search for three-item enumerations (improved pattern)
-        enumeration_matches = re.findall(self.enumeration_pattern, text, re.IGNORECASE | re.DOTALL)
+        # Анализируем каждое предложение отдельно для лучшего контекста
+        for sent_idx, sentence in enumerate(sentences):
+            if not sentence or len(sentence.strip()) < 20:
+                continue
+            
+            # Ищем все возможные перечисления в предложении
+            matches = re.findall(self.enumeration_pattern, sentence, re.IGNORECASE | re.DOTALL)
+            
+            for match in matches:
+                # Очищаем от лишних пробелов и переносов
+                clean_match = re.sub(r'\s+', ' ', match).strip()
+                
+                # Подсчитываем количество запятых в найденном фрагменте
+                comma_count = clean_match.count(',')
+                
+                # Для трех элементов должно быть ровно 2 запятые (перед and)
+                # Если запятых больше 2, значит это перечисление из 4+ элементов
+                if comma_count == 2:
+                    # Убеждаемся, что это действительно 3 элемента
+                    parts = clean_match.split(',')
+                    if len(parts) == 3:  # Должно быть "X, Y and Z"
+                        # Проверяем наличие "and" во второй части
+                        if ' and ' in parts[1]:
+                            enumeration_data = {
+                                'sentence_idx': sent_idx,
+                                'full_sentence': sentence[:500] if len(sentence) > 500 else sentence,
+                                'enumeration': clean_match,
+                                'comma_count': comma_count,
+                                'word_count': len(clean_match.split()),
+                                'context': self._get_context(sentence, clean_match)
+                            }
+                            results['all_enumerations'].append(enumeration_data)
+                            
+                            if len(results['examples']) < 100:
+                                results['examples'].append(clean_match)
+                else:
+                    # Сохраняем для отладки, если нужно
+                    if comma_count > 2:
+                        results['invalid_enumerations'].append({
+                            'enumeration': clean_match,
+                            'comma_count': comma_count
+                        })
         
-        # Filter too long matches (likely whole sentences)
-        valid_enumerations = []
-        for match in enumeration_matches:
-            # Clean extra spaces and line breaks
-            clean_match = re.sub(r'\s+', ' ', match).strip()
-            word_count = len(clean_match.split())
-            # Enumeration should be reasonable length (not whole sentence)
-            if 5 <= word_count <= 30:
-                valid_enumerations.append(clean_match)
-        
-        results['three_item_count'] = len(valid_enumerations)
-        results['all_enumerations'] = valid_enumerations
-        
-        # Search for enumerations with specifically
+        # Ищем перечисления со словом "specifically"
         specifically_matches = re.findall(self.specifically_pattern, text, re.IGNORECASE)
         results['specifically_count'] = len(specifically_matches)
         
-        # Normalize per 1000 sentences
+        results['three_item_count'] = len(results['all_enumerations'])
+        
+        # Нормализуем на 1000 предложений
         if total_sentences > 0:
             results['three_item_per_1000_sentences'] = (results['three_item_count'] * 1000) / total_sentences
         
-        # Collect examples
-        results['examples'] = valid_enumerations[:20]
-        
-        # Statistics by sentence
+        # Статистика по предложениям
         enumerations_per_sentence = []
-        for sent in sentences[:100]:
+        for sent in sentences[:200]:
             sent_enumerations = len(re.findall(self.enumeration_pattern, sent, re.IGNORECASE))
-            enumerations_per_sentence.append(sent_enumerations)
+            if sent_enumerations > 0:
+                enumerations_per_sentence.append(sent_enumerations)
         
         if enumerations_per_sentence:
             results['statistics']['mean_enumerations_per_sentence'] = float(np.mean(enumerations_per_sentence))
             results['statistics']['max_enumerations_in_sentence'] = float(np.max(enumerations_per_sentence))
             results['statistics']['distribution'] = enumerations_per_sentence
         
-        # Risk assessment (frequent strict enumerations = AI indicator)
+        # Risk assessment
         risk_score = 0
         confidence = 0.5
         
-        if results['three_item_per_1000_sentences'] > 10:
+        if results['three_item_per_1000_sentences'] > 15:
             risk_score = 3
             confidence = 0.9
-        elif results['three_item_per_1000_sentences'] > 5:
+        elif results['three_item_per_1000_sentences'] > 8:
             risk_score = 2
             confidence = 0.7
-        elif results['three_item_per_1000_sentences'] > 2:
+        elif results['three_item_per_1000_sentences'] > 3:
             risk_score = 1
             confidence = 0.6
         
@@ -2359,7 +2579,15 @@ class EnumerationAnalyzer:
             results['risk_level'] = 'very_low'
         
         return results
-
+    
+    def _get_context(self, sentence: str, enumeration: str) -> str:
+        """Get context around the enumeration within the sentence"""
+        if enumeration in sentence:
+            parts = sentence.split(enumeration)
+            before = parts[0][-50:] if len(parts[0]) > 50 else parts[0]
+            after = parts[1][:50] if len(parts) > 1 and len(parts[1]) > 50 else (parts[1] if len(parts) > 1 else '')
+            return f"...{before}[{enumeration}]{after}..."
+        return enumeration
 
 class ParagraphAnalyzer:
     """Paragraph-level analysis (new module)"""
@@ -2780,25 +3008,26 @@ class IntegratedRiskScorer:
     """Integrated risk assessment based on all modules"""
     
     def __init__(self):
-        # Module weights (updated with new weights - UNICODE NOW 25%!)
+        # Module weights (updated with tortured_phrases - weight 0.10)
         self.weights = {
-            'unicode': 0.25,        # УВЕЛИЧЕНО с 0.15 до 0.25 (теперь 25% веса)
-            'dashes': 0.12,          # оставляем 12%
-            'phrases': 0.07,
-            'burstiness': 0.05,
-            'grammar': 0.06,          # уменьшено немного
-            'hedging': 0.08,           # уменьшено
-            'paragraph': 0.04,          # уменьшено
-            'perplexity': 0.03,          # уменьшено
-            'semantic': 0.03,             # уменьшено
-            'parenthesis': 0.03,           # уменьшено
-            'punctuation': 0.03,           # уменьшено
-            'apostrophe': 0.08,            # оставляем 8%
-            'enumeration': 0.07,            # уменьшено
-            'repetitiveness': 0.03,          # уменьшено
-            'lexical_diversity': 0.02,        # уменьшено
-            'log_prob': 0.01,                 # минимум
-            'ml_classifier': 0.01              # минимум
+            'unicode': 0.25,
+            'dashes': 0.10,          # немного уменьшили, чтобы освободить место
+            'phrases': 0.06,
+            'tortured_phrases': 0.10,  # НОВЫЙ модуль с весом 10%
+            'burstiness': 0.04,
+            'grammar': 0.05,
+            'hedging': 0.06,
+            'paragraph': 0.03,
+            'perplexity': 0.02,
+            'semantic': 0.02,
+            'parenthesis': 0.03,
+            'punctuation': 0.03,
+            'apostrophe': 0.07,
+            'enumeration': 0.06,
+            'repetitiveness': 0.03,
+            'lexical_diversity': 0.02,
+            'log_prob': 0.01,
+            'ml_classifier': 0.02
         }
                
         # Normalize weights
@@ -4199,14 +4428,32 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             if 'dashes' in results:
                 add_section_header(story, "3.8 Dash Analysis", level=2, anchor="section3.8")
                 dash_data = results['dashes']
-                dashes = dash_data.get('all_dash_sentences', [])
-                story.append(Paragraph(f"• Sentences with dashes: {len(dashes)}", normal_style))
                 
-                if dashes:
-                    story.append(Paragraph("Examples:", example_style))
-                    for d in dashes[:50]:
-                        sentence = clean_text_for_pdf(d.get('sentence', ''))[:100]
-                        story.append(Paragraph(f"  • Dashes: {d.get('dash_count', 0)} → ...{sentence}...", example_style))
+                # Общая статистика
+                all_dashes = dash_data.get('all_dash_sentences', [])
+                double_dashes = dash_data.get('double_dash_sentences', [])
+                
+                story.append(Paragraph(f"• Total sentences with dashes: {len(all_dashes)}", normal_style))
+                story.append(Paragraph(f"• Sentences with TWO dashes: {len(double_dashes)}", normal_style))
+                story.append(Paragraph(f"• Heavy sentences (3+ dashes): {len(dash_data.get('heavy_sentences', []))}", normal_style))
+                
+                # Отдельная секция для предложений с двумя тире
+                if double_dashes:
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Sentences with TWO dashes (critical pattern):", 
+                                          ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
+                    for i, item in enumerate(double_dashes[:50]):  # Лимит 50 для PDF, но можно убрать
+                        story.append(Paragraph(f"{i+1}. {clean_text_for_pdf(item['sentence'])}", example_style))
+                
+                # Все предложения с тире (если нужно показать все, уберите [:50])
+                if all_dashes and len(double_dashes) < len(all_dashes):
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Other sentences with dashes:", 
+                                          ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
+                    for i, item in enumerate(all_dashes[:30]):  # Можно увеличить лимит до 100
+                        if item not in double_dashes:  # Не повторяем уже показанные
+                            story.append(Paragraph(f"{i+1}. {clean_text_for_pdf(item['sentence'][:300])}...", example_style))
+                
                 story.append(Spacer(1, 0.2*cm))
             
             # Lexical diversity
@@ -4467,9 +4714,10 @@ def main():
                 
                 # Run all analyzers with progress updates
                 analyzers = [
-                    ('unicode', UnicodeArtifactDetector(), 15),
-                    ('dashes', DashAnalyzer(), 20),
-                    ('phrases', AIPhraseDetector(), 25),
+                    ('unicode', UnicodeArtifactDetector(), 14),
+                    ('dashes', DashAnalyzer(), 18),
+                    ('phrases', AIPhraseDetector(), 22),
+                    ('tortured_phrases', TorturedPhraseDetector(), 26),
                     ('burstiness', BurstinessAnalyzer(), 30),
                     ('grammar', GrammarAnalyzer(), 35),
                     ('hedging', HedgingAnalyzer(), 40),
@@ -4755,9 +5003,12 @@ def main():
                 
                 # Enumerations
                 if 'enumeration' in results and results['enumeration']['all_enumerations']:
-                    with st.expander(f"🔢 Enumerations ({len(results['enumeration']['all_enumerations'])} found)"):
-                        for enum in results['enumeration']['all_enumerations'][:50]:
-                            st.code(enum)
+                    with st.expander(f"🔢 Three-item enumerations ({len(results['enumeration']['all_enumerations'])} found)"):
+                        for i, enum in enumerate(results['enumeration']['all_enumerations']):
+                            st.markdown(f"**{i+1}.** In sentence: *{enum['full_sentence']}*")
+                            st.markdown(f"   → Enumeration: `{enum['enumeration']}`")
+                            if i < len(results['enumeration']['all_enumerations']) - 1:
+                                st.divider()
                 
                 # Apostrophes
                 if 'apostrophe' in results and results['apostrophe']['all_apostrophes']:
@@ -4783,10 +5034,23 @@ def main():
                             st.markdown(f"**{rep['ngram']}** — {rep['count']} times")
                 
                 # Dashes
-                if 'dashes' in results and results['dashes']['all_dash_sentences']:
-                    with st.expander(f"— Dashes ({len(results['dashes']['all_dash_sentences'])} found)"):
-                        for item in results['dashes']['all_dash_sentences'][:50]:
-                            st.info(f"Dashes: {item['dash_count']} → {item['sentence'][:200]}")
+                if 'dashes' in results and (results['dashes']['all_dash_sentences'] or results['dashes']['double_dash_sentences']):
+                    
+                    if results['dashes']['double_dash_sentences']:
+                        with st.expander(f"— Sentences with TWO dashes ({len(results['dashes']['double_dash_sentences'])} found) - CRITICAL FOR DETECTION"):
+                            st.markdown("These sentences contain the **— —** pattern (two em-dashes):")
+                            for i, item in enumerate(results['dashes']['double_dash_sentences']):
+                                st.markdown(f"**{i+1}.** {item['sentence']}")
+                                st.caption(f"*Sentence {item['sentence_idx']}, words: {item['word_count']}*")
+                                st.divider()
+                    
+                    with st.expander(f"— All sentences with dashes ({len(results['dashes']['all_dash_sentences'])} total)"):
+                        for i, item in enumerate(results['dashes']['all_dash_sentences']):
+                            emoji = "🔴" if item['dash_count'] >= 3 else "🟡" if item['dash_count'] == 2 else "⚪"
+                            st.markdown(f"{emoji} **{i+1}.** {item['sentence']}")
+                            st.caption(f"*Dashes: {item['dash_count']}, words: {item['word_count']}*")
+                            if i < len(results['dashes']['all_dash_sentences']) - 1:
+                                st.divider()
                 
                 # Unicode artifacts
                 if 'unicode' in results and results['unicode']['all_suspicious_chunks']:
