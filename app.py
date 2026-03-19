@@ -3953,13 +3953,14 @@ def create_table_of_contents(story, doc):
         ("3. DETAILED MODULE ANALYSIS", 3),
         ("   3.1 Unicode Artifacts", 3),
         ("   3.2 AI Phrases", 3),
-        ("   3.3 Strict Enumerations", 3),
-        ("   3.4 Apostrophe Usage", 3),
-        ("   3.5 Punctuation Analysis", 3),
-        ("   3.6 Parenthesis Analysis", 3),
-        ("   3.7 Repetitiveness Analysis", 3),
-        ("   3.8 Dash Analysis", 3),
-        ("   3.9 Lexical Diversity", 3),
+        ("   3.3 Tortured Phrases", 3),
+        ("   3.4 Strict Enumerations", 3),
+        ("   3.5 Apostrophe Usage", 3),
+        ("   3.6 Punctuation Analysis", 3),
+        ("   3.7 Parenthesis Analysis", 3),
+        ("   3.8 Repetitiveness Analysis", 3),
+        ("   3.9 Dash Analysis", 3),
+        ("   3.10 Lexical Diversity", 3),
         ("4. TEXT SAMPLES", 4),
         ("5. CONCLUSION & RECOMMENDATIONS", 5),
     ]
@@ -4302,6 +4303,45 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                         story.append(Paragraph(f"• '{occ.get('phrase', '')}' → ...{context}...", example_style))
                     examples_added += 1
                     story.append(Spacer(1, 0.2*cm))
+
+            # Tortured Phrases
+            if 'tortured_phrases' in results:
+                add_section_header(story, "3.3 Tortured Phrases", level=2, anchor="section3.3")
+                tp_data = results['tortured_phrases']
+                occurrences = tp_data.get('all_occurrences', [])
+                
+                story.append(Paragraph(f"• Total occurrences: {tp_data.get('total_occurrences', 0)}", normal_style))
+                story.append(Paragraph(f"• Unique tortured phrases: {tp_data.get('unique_tortured_count', 0)}", normal_style))
+                story.append(Paragraph(f"• Frequency per 1000 words: {tp_data.get('tortured_per_1000_words', 0):.2f}", normal_style))
+                
+                if tp_data.get('tortured_phrases_found'):
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Tortured phrases found:", 
+                                          ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
+                    for phrase in tp_data['tortured_phrases_found']:
+                        story.append(Paragraph(f"• '{phrase['tortured']}' → correct: {phrase['correct']} (found {phrase['count']} times)", 
+                                              example_style))
+                
+                if occurrences:
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Examples with context:", 
+                                          ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
+                    
+                    by_phrase = {}
+                    for occ in occurrences:
+                        key = f"{occ['tortured']} → {occ['correct']}"
+                        if key not in by_phrase:
+                            by_phrase[key] = []
+                        by_phrase[key].append(occ)
+                    
+                    for phrase_group, group_occurrences in list(by_phrase.items())[:5]:  # Топ-5 фраз
+                        story.append(Paragraph(f"  {phrase_group}:", example_style))
+                        for i, occ in enumerate(group_occurrences[:3]):  # По 3 примера на фразу
+                            context = clean_text_for_pdf(occ['context'])[:250]
+                            story.append(Paragraph(f"    {i+1}. ...{context}...", example_style))
+                        story.append(Spacer(1, 0.1*cm))
+                
+                story.append(Spacer(1, 0.2*cm))
             
             # Enumerations
             if 'enumeration' in results and results['enumeration'].get('all_enumerations'):
@@ -4976,6 +5016,18 @@ def main():
                                     st.caption(f"*Dashes: {item['dash_count']}, words: {item['word_count']}*")
                                     if i < len(other_dashes) - 1:
                                         st.divider()
+                                        
+                    if 'tortured_phrases' in results:
+                        tp_data = results['tortured_phrases']
+                        if tp_data['total_occurrences'] > 0:
+                            st.warning(f"⚠️ **Tortured Phrases Detected**: {tp_data['total_occurrences']} occurrences of {tp_data['unique_tortured_count']} unique tortured phrases")
+                            
+                            # Показываем топ-3 самые частые
+                            if tp_data['tortured_phrases_found']:
+                                top_phrases = sorted(tp_data['tortured_phrases_found'], 
+                                                    key=lambda x: x['count'], reverse=True)[:3]
+                                phrases_text = ", ".join([f"'{p['tortured']}' ({p['count']})" for p in top_phrases])
+                                st.caption(f"Most frequent: {phrases_text}")
                 
                 with col2:
                     if 'punctuation' in results:
@@ -5082,6 +5134,27 @@ def main():
                     with st.expander(f"🔣 Unicode Artifacts ({len(results['unicode']['all_suspicious_chunks'])} found)"):
                         for chunk in results['unicode']['all_suspicious_chunks'][:100]:
                             st.code(f"Character '{chunk['char']}' ({chunk['type']}) → ...{chunk['context'][:150]}...")
+
+                # Tortured Phrases
+                if 'tortured_phrases' in results and results['tortured_phrases']['all_occurrences']:
+                    with st.expander(f"🔴 Tortured Phrases ({len(results['tortured_phrases']['all_occurrences'])} occurrences)"):
+                        # Группируем по фразам
+                        tortured_dict = {}
+                        for occ in results['tortured_phrases']['all_occurrences']:
+                            key = f"{occ['tortured']} → {occ['correct']}"
+                            if key not in tortured_dict:
+                                tortured_dict[key] = []
+                            tortured_dict[key].append(occ)
+                        
+                        # Показываем статистику по группам
+                        for phrase_group, occurrences in tortured_dict.items():
+                            st.markdown(f"### {phrase_group} ({len(occurrences)} times)")
+                            for i, occ in enumerate(occurrences[:10]):  # Показываем до 10 примеров на группу
+                                st.markdown(f"**{i+1}.** Context: *{occ['context']}*")
+                                if i < min(len(occurrences), 10) - 1:
+                                    st.divider()
+                            if len(occurrences) > 10:
+                                st.caption(f"... and {len(occurrences) - 10} more occurrences")
             
             # Action buttons
             col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
