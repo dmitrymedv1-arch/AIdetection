@@ -6182,7 +6182,7 @@ def main():
                             st.markdown(f"**{rep['ngram']}** — {rep['count']} times")
                 
                 # Dashes
-                if 'dashes' in results and (results['dashes']['all_dash_sentences'] or results['dashes']['double_dash_sentences']):
+                if 'dashes' in results and results['dashes'] and (results['dashes'].get('all_dash_sentences') or results['dashes'].get('double_dash_sentences')):
                     
                     if results['dashes']['double_dash_sentences']:
                         with st.expander(f"— Sentences with TWO dashes ({len(results['dashes']['double_dash_sentences'])} found) - CRITICAL FOR DETECTION"):
