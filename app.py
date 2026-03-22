@@ -1113,261 +1113,167 @@ class AIPhraseDetector:
         if not text or not sentences:
             return results
         
-        text_lower = text.lower()
-        total_sentences = len(sentences)
+        # Split into paragraphs (improved)
+        paragraphs = self.split_paragraphs(text)
         
-        # Search for AI phrases
-        phrase_counts = Counter()
-        phrase_positions = []
+        # ===== IMPROVED GERUND DETECTION (pre-sentence analysis) =====
+        gerund_pattern = r'\b([a-zA-Z]+ing)\b'
+        gerund_positions = []
         
-        for phrase in self.ai_phrases:
-            # Find all occurrences with context
-            matches = list(re.finditer(re.escape(phrase), text_lower, re.IGNORECASE))
-            if matches:
-                phrase_counts[phrase] += len(matches)
-                
-                for match in matches[:20]:  # Limit per phrase for performance
-                    start_pos = match.start()
-                    # Get context (50 chars before and after)
-                    context_start = max(0, start_pos - 100)
-                    context_end = min(len(text), start_pos + len(phrase) + 100)
-                    context = text[context_start:context_end].strip()
-                    
-                    occurrence = {
-                        'phrase': phrase,
-                        'context': context,
-                        'position': start_pos
-                    }
-                    results['all_phrase_occurrences'].append(occurrence)
+        for match in re.finditer(gerund_pattern, text, re.IGNORECASE):
+            gerund_positions.append(match.end())
         
-        # Search for metadiscourse markers
-        for marker in self.metadiscourse_markers:
-            count = text_lower.count(marker)
-            if count > 0:
-                results['metadiscourse_count'] += count
-                results['metadiscourse_markers'].append({'marker': marker, 'count': count})
+        # Analyze what follows each gerund
+        for pos in gerund_positions:
+            context = text[pos:pos+40]
+            
+            if re.match(r'\s+the\b', context, re.IGNORECASE):
+                results['gerund_the_count'] += 1
+                # Store example
+                gerund_match = re.search(r'\b(\w+ing)\b', text[max(0, pos-20):pos])
+                if gerund_match and len(results['gerund_contexts']) < 30:
+                    after_text = context[context.find('the')+4:context.find('the')+40].strip()
+                    results['gerund_contexts'].append({
+                        'type': 'the',
+                        'phrase': f"{gerund_match.group(1)} the {after_text}"[:100]
+                    })
+            
+            elif re.match(r'\s+of\b', context, re.IGNORECASE):
+                results['gerund_of_count'] += 1
+                gerund_match = re.search(r'\b(\w+ing)\b', text[max(0, pos-20):pos])
+                if gerund_match and len(results['gerund_contexts']) < 30:
+                    after_text = context[context.find('of')+3:context.find('of')+40].strip()
+                    results['gerund_contexts'].append({
+                        'type': 'of',
+                        'phrase': f"{gerund_match.group(1)} of {after_text}"[:100]
+                    })
+            
+            elif re.match(r'\s+a\b', context, re.IGNORECASE):
+                results['gerund_a_count'] += 1
+            
+            elif re.match(r'\s+an\b', context, re.IGNORECASE):
+                results['gerund_an_count'] += 1
         
-        # Calculate statistics
-        results['ai_phrase_count'] = len(results['all_phrase_occurrences'])
+        # ===== SENTENCE-LEVEL STATISTICS =====
+        for sentence in sentences:
+            if not sentence or len(sentence.strip()) < 2:
+                continue
+            
+            words = sentence.split()
+            sent_length = len(words)
+            results['sentence_lengths'].append(sent_length)
+            
+            # Commas
+            comma_count = sentence.count(',')
+            results['commas_per_sentence'].append(comma_count)
+            
+            # Apostrophes
+            apostrophe_count = len(re.findall(r"'", sentence))
+            results['apostrophes_per_sentence'].append(apostrophe_count)
+            
+            # -ly adverbs
+            ly_adverbs = len(re.findall(r'\b\w+ly\b', sentence, re.IGNORECASE))
+            results['ly_adverbs_per_sentence'].append(ly_adverbs)
+            
+            # Gerund patterns per sentence
+            gerund_the_sent = len(re.findall(r'\b\w+ing\s+the\b', sentence, re.IGNORECASE))
+            gerund_of_sent = len(re.findall(r'\b\w+ing\s+of\b', sentence, re.IGNORECASE))
+            results['gerund_the_per_sentence'].append(gerund_the_sent)
+            results['gerund_of_per_sentence'].append(gerund_of_sent)
+            
+            # Indefinite articles
+            articles = len(re.findall(r'\b(a|an|A|An)\b', sentence))
+            results['indefinite_articles_per_sentence'].append(articles)
+            
+            # Figure/Table/Supplementary mentions (with full sentence context)
+            for pattern in self.figure_patterns:
+                matches = re.findall(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    results['figure_mentions'].append({
+                        'sentence': sentence.strip(),
+                        'match': match
+                    })
+            
+            for pattern in self.table_patterns:
+                matches = re.findall(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    results['table_mentions'].append({
+                        'sentence': sentence.strip(),
+                        'match': match
+                    })
+            
+            for pattern in self.supplementary_patterns:
+                matches = re.findall(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    results['supplementary_mentions'].append({
+                        'sentence': sentence.strip(),
+                        'match': match
+                    })
         
-        # Get top phrases
-        if phrase_counts:
-            results['top_phrases'] = phrase_counts.most_common(20)
+        # ===== PARAGRAPH-LEVEL STATISTICS =====
+        for paragraph in paragraphs:
+            if not paragraph:
+                continue
+            
+            para_words = paragraph.split()
+            para_length = len(para_words)
+            results['paragraph_lengths'].append(para_length)
+            
+            results['commas_per_paragraph'].append(paragraph.count(','))
+            results['apostrophes_per_paragraph'].append(len(re.findall(r"'", paragraph)))
+            results['ly_adverbs_per_paragraph'].append(len(re.findall(r'\b\w+ly\b', paragraph, re.IGNORECASE)))
+            results['gerund_the_per_paragraph'].append(len(re.findall(r'\b\w+ing\s+the\b', paragraph, re.IGNORECASE)))
+            results['gerund_of_per_paragraph'].append(len(re.findall(r'\b\w+ing\s+of\b', paragraph, re.IGNORECASE)))
+            results['indefinite_articles_per_paragraph'].append(len(re.findall(r'\b(a|an|A|An)\b', paragraph)))
         
-        # Distribution by sentence
-        phrases_per_sentence = []
-        for sent in sentences[:200]:
-            sent_lower = sent.lower()
-            sent_count = sum(1 for phrase in self.ai_phrases if phrase in sent_lower)
-            phrases_per_sentence.append(sent_count)
+        # ===== CALCULATE STATISTICS =====
+        def calculate_stats(values):
+            if not values:
+                return {'min': 0, 'max': 0, 'mean': 0, 'median': 0, 'total': 0}
+            return {
+                'min': float(np.min(values)),
+                'max': float(np.max(values)),
+                'mean': float(np.mean(values)),
+                'median': float(np.median(values)),
+                'total': sum(values),
+                'count': len(values)
+            }
         
-        if phrases_per_sentence:
-            results['statistics']['mean_phrases_per_sentence'] = float(np.mean(phrases_per_sentence))
-            results['statistics']['median_phrases_per_sentence'] = float(np.median(phrases_per_sentence))
-            results['statistics']['max_phrases_in_sentence'] = float(np.max(phrases_per_sentence))
-            results['statistics']['distribution'] = phrases_per_sentence[:100]
+        # Sentence-level stats
+        results['statistics']['sentence_length'] = calculate_stats(results['sentence_lengths'])
+        results['statistics']['commas_per_sentence'] = calculate_stats(results['commas_per_sentence'])
+        results['statistics']['apostrophes_per_sentence'] = calculate_stats(results['apostrophes_per_sentence'])
+        results['statistics']['ly_adverbs_per_sentence'] = calculate_stats(results['ly_adverbs_per_sentence'])
+        results['statistics']['gerund_the_per_sentence'] = calculate_stats(results['gerund_the_per_sentence'])
+        results['statistics']['gerund_of_per_sentence'] = calculate_stats(results['gerund_of_per_sentence'])
+        results['statistics']['indefinite_articles_per_sentence'] = calculate_stats(results['indefinite_articles_per_sentence'])
         
-        # Transition score (ratio of metadiscourse to total phrases)
-        if results['ai_phrase_count'] > 0:
-            results['transition_score'] = results['metadiscourse_count'] / results['ai_phrase_count']
+        # Paragraph-level stats
+        results['statistics']['paragraph_length'] = calculate_stats(results['paragraph_lengths'])
+        results['statistics']['commas_per_paragraph'] = calculate_stats(results['commas_per_paragraph'])
+        results['statistics']['apostrophes_per_paragraph'] = calculate_stats(results['apostrophes_per_paragraph'])
+        results['statistics']['ly_adverbs_per_paragraph'] = calculate_stats(results['ly_adverbs_per_paragraph'])
+        results['statistics']['gerund_the_per_paragraph'] = calculate_stats(results['gerund_the_per_paragraph'])
+        results['statistics']['gerund_of_per_paragraph'] = calculate_stats(results['gerund_of_per_paragraph'])
+        results['statistics']['indefinite_articles_per_paragraph'] = calculate_stats(results['indefinite_articles_per_paragraph'])
         
-        # Risk assessment
-        risk_score = 0
-        confidence = 0.5
+        # Additional counts
+        results['figure_count'] = len(results['figure_mentions'])
+        results['table_count'] = len(results['table_mentions'])
+        results['supplementary_count'] = len(results['supplementary_mentions'])
         
-        # More AI phrases = higher risk
-        if results['ai_phrase_count'] > 50:
-            risk_score = 6
-            confidence = 0.95
-        elif results['ai_phrase_count'] > 25:
-            risk_score = 5
-            confidence = 0.9
-        elif results['ai_phrase_count'] > 10:
-            risk_score = 4
-            confidence = 0.85
-        elif results['ai_phrase_count'] > 5:
-            risk_score = 3
-            confidence = 0.7
-        elif results['ai_phrase_count'] > 2:
-            risk_score = 2
-            confidence = 0.6
-        elif results['ai_phrase_count'] > 0:
-            risk_score = 1
-            confidence = 0.5
-        
-        # Adjust for high transition score (more transitions = more human-like)
-        if results['transition_score'] > 0.5:
-            risk_score = max(0, risk_score - 1)
-            confidence = min(confidence + 0.1, 1.0)
-        
-        results['risk_score'] = risk_score
-        results['confidence'] = confidence
-        
-        if risk_score >= 5:
-            results['risk_level'] = 'critical'
-        elif risk_score >= 4:
-            results['risk_level'] = 'high'
-        elif risk_score >= 2:
-            results['risk_level'] = 'medium'
-        elif risk_score >= 1:
-            results['risk_level'] = 'low'
+        # Add warning flag if paragraph detection failed
+        if len(paragraphs) <= 1 and len(text.split()) > 500:
+            results['paragraph_warning'] = True
         
         return results
     
-    # Split into paragraphs (improved)
-    paragraphs = self.split_paragraphs(text)
-    
-    # ===== IMPROVED GERUND DETECTION (pre-sentence analysis) =====
-    gerund_pattern = r'\b([a-zA-Z]+ing)\b'
-    gerund_positions = []
-    
-    for match in re.finditer(gerund_pattern, text, re.IGNORECASE):
-        gerund_positions.append(match.end())
-    
-    # Analyze what follows each gerund
-    for pos in gerund_positions:
-        context = text[pos:pos+40]
-        
-        if re.match(r'\s+the\b', context, re.IGNORECASE):
-            results['gerund_the_count'] += 1
-            # Store example
-            gerund_match = re.search(r'\b(\w+ing)\b', text[max(0, pos-20):pos])
-            if gerund_match and len(results['gerund_contexts']) < 30:
-                after_text = context[context.find('the')+4:context.find('the')+40].strip()
-                results['gerund_contexts'].append({
-                    'type': 'the',
-                    'phrase': f"{gerund_match.group(1)} the {after_text}"[:100]
-                })
-        
-        elif re.match(r'\s+of\b', context, re.IGNORECASE):
-            results['gerund_of_count'] += 1
-            gerund_match = re.search(r'\b(\w+ing)\b', text[max(0, pos-20):pos])
-            if gerund_match and len(results['gerund_contexts']) < 30:
-                after_text = context[context.find('of')+3:context.find('of')+40].strip()
-                results['gerund_contexts'].append({
-                    'type': 'of',
-                    'phrase': f"{gerund_match.group(1)} of {after_text}"[:100]
-                })
-        
-        elif re.match(r'\s+a\b', context, re.IGNORECASE):
-            results['gerund_a_count'] += 1
-        
-        elif re.match(r'\s+an\b', context, re.IGNORECASE):
-            results['gerund_an_count'] += 1
-    
-    # ===== SENTENCE-LEVEL STATISTICS =====
-    for sentence in sentences:
-        if not sentence or len(sentence.strip()) < 2:
-            continue
-        
-        words = sentence.split()
-        sent_length = len(words)
-        results['sentence_lengths'].append(sent_length)
-        
-        # Commas
-        comma_count = sentence.count(',')
-        results['commas_per_sentence'].append(comma_count)
-        
-        # Apostrophes
-        apostrophe_count = len(re.findall(r"'", sentence))
-        results['apostrophes_per_sentence'].append(apostrophe_count)
-        
-        # -ly adverbs
-        ly_adverbs = len(re.findall(r'\b\w+ly\b', sentence, re.IGNORECASE))
-        results['ly_adverbs_per_sentence'].append(ly_adverbs)
-        
-        # Gerund patterns per sentence
-        gerund_the_sent = len(re.findall(r'\b\w+ing\s+the\b', sentence, re.IGNORECASE))
-        gerund_of_sent = len(re.findall(r'\b\w+ing\s+of\b', sentence, re.IGNORECASE))
-        results['gerund_the_per_sentence'].append(gerund_the_sent)
-        results['gerund_of_per_sentence'].append(gerund_of_sent)
-        
-        # Indefinite articles
-        articles = len(re.findall(r'\b(a|an|A|An)\b', sentence))
-        results['indefinite_articles_per_sentence'].append(articles)
-        
-        # Figure/Table/Supplementary mentions (with full sentence context)
-        for pattern in self.figure_patterns:
-            matches = re.findall(pattern, sentence, re.IGNORECASE)
-            for match in matches:
-                results['figure_mentions'].append({
-                    'sentence': sentence.strip(),
-                    'match': match
-                })
-        
-        for pattern in self.table_patterns:
-            matches = re.findall(pattern, sentence, re.IGNORECASE)
-            for match in matches:
-                results['table_mentions'].append({
-                    'sentence': sentence.strip(),
-                    'match': match
-                })
-        
-        for pattern in self.supplementary_patterns:
-            matches = re.findall(pattern, sentence, re.IGNORECASE)
-            for match in matches:
-                results['supplementary_mentions'].append({
-                    'sentence': sentence.strip(),
-                    'match': match
-                })
-    
-    # ===== PARAGRAPH-LEVEL STATISTICS =====
-    for paragraph in paragraphs:
-        if not paragraph:
-            continue
-        
-        para_words = paragraph.split()
-        para_length = len(para_words)
-        results['paragraph_lengths'].append(para_length)
-        
-        results['commas_per_paragraph'].append(paragraph.count(','))
-        results['apostrophes_per_paragraph'].append(len(re.findall(r"'", paragraph)))
-        results['ly_adverbs_per_paragraph'].append(len(re.findall(r'\b\w+ly\b', paragraph, re.IGNORECASE)))
-        results['gerund_the_per_paragraph'].append(len(re.findall(r'\b\w+ing\s+the\b', paragraph, re.IGNORECASE)))
-        results['gerund_of_per_paragraph'].append(len(re.findall(r'\b\w+ing\s+of\b', paragraph, re.IGNORECASE)))
-        results['indefinite_articles_per_paragraph'].append(len(re.findall(r'\b(a|an|A|An)\b', paragraph)))
-    
-    # ===== CALCULATE STATISTICS =====
-    def calculate_stats(values):
-        if not values:
-            return {'min': 0, 'max': 0, 'mean': 0, 'median': 0, 'total': 0}
-        return {
-            'min': float(np.min(values)),
-            'max': float(np.max(values)),
-            'mean': float(np.mean(values)),
-            'median': float(np.median(values)),
-            'total': sum(values),
-            'count': len(values)
-        }
-    
-    # Sentence-level stats
-    results['statistics']['sentence_length'] = calculate_stats(results['sentence_lengths'])
-    results['statistics']['commas_per_sentence'] = calculate_stats(results['commas_per_sentence'])
-    results['statistics']['apostrophes_per_sentence'] = calculate_stats(results['apostrophes_per_sentence'])
-    results['statistics']['ly_adverbs_per_sentence'] = calculate_stats(results['ly_adverbs_per_sentence'])
-    results['statistics']['gerund_the_per_sentence'] = calculate_stats(results['gerund_the_per_sentence'])
-    results['statistics']['gerund_of_per_sentence'] = calculate_stats(results['gerund_of_per_sentence'])
-    results['statistics']['indefinite_articles_per_sentence'] = calculate_stats(results['indefinite_articles_per_sentence'])
-    
-    # Paragraph-level stats
-    results['statistics']['paragraph_length'] = calculate_stats(results['paragraph_lengths'])
-    results['statistics']['commas_per_paragraph'] = calculate_stats(results['commas_per_paragraph'])
-    results['statistics']['apostrophes_per_paragraph'] = calculate_stats(results['apostrophes_per_paragraph'])
-    results['statistics']['ly_adverbs_per_paragraph'] = calculate_stats(results['ly_adverbs_per_paragraph'])
-    results['statistics']['gerund_the_per_paragraph'] = calculate_stats(results['gerund_the_per_paragraph'])
-    results['statistics']['gerund_of_per_paragraph'] = calculate_stats(results['gerund_of_per_paragraph'])
-    results['statistics']['indefinite_articles_per_paragraph'] = calculate_stats(results['indefinite_articles_per_paragraph'])
-    
-    # Additional counts
-    results['figure_count'] = len(results['figure_mentions'])
-    results['table_count'] = len(results['table_mentions'])
-    results['supplementary_count'] = len(results['supplementary_mentions'])
-    
-    # Add warning flag if paragraph detection failed
-    if len(paragraphs) <= 1 and len(text.split()) > 500:
-        results['paragraph_warning'] = True
-    
-    return results
+    def split_paragraphs(self, text: str) -> List[str]:
+        """Split text into paragraphs"""
+        # Split by double newlines
+        paragraphs = re.split(r'\n\s*\n', text)
+        # Filter out empty paragraphs
+        return [p.strip() for p in paragraphs if p.strip()]
 
 class TorturedPhraseDetector:
     """Detector for tortured phrases - distorted academic terminology"""
