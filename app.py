@@ -4898,7 +4898,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             # Figure mentions
             if text_stats.get('figure_mentions'):
                 story.append(Paragraph(f"Figure Mentions (Total: {text_stats.get('figure_count', 0)}):", 
-                                      ParagraphStyle('FigureHeading', parent=subsection_style, fontSize=10)))
+                                      ParagraphStyle('FigureHeading', parent=styles['Heading4'], fontSize=10)))
                 for mention in text_stats['figure_mentions'][:5]:
                     clean_sent = clean_text_for_pdf(mention['sentence'])[:150]
                     story.append(Paragraph(f"• {clean_sent}...", example_style))
