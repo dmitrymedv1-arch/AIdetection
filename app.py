@@ -961,25 +961,12 @@ class AIPhraseDetector:
             'underscore', 'elucidate', 'illuminate', 'data-driven',
             'paves the way', 'leverage', 'leverages', 'leveraging',
             
-            # Additional AI phrases (NEW)
+            # Additional AI phrases
             'pathway', 'pathways',
             'signaling', 'signals',
             'Collectively',
             'manifest',
             'paradigm',
-            'synergy', 'synergistic',  # NEW
-            'holistic',  # NEW
-            'actionable',  # NEW
-            'groundbreaking',  # NEW
-            'revolutionary',  # NEW
-            'game-changing',  # NEW
-            'seamless',  # NEW
-            'unprecedented',  # NEW
-            'multifaceted',  # NEW
-            'comprehensive',  # NEW
-            'scalable',  # NEW
-            'state-of-the-art',  # NEW
-            'next-generation',  # NEW
             
             # Stable connectives
             'it is worth noting', 'it is important to note',
@@ -1188,34 +1175,13 @@ class TorturedPhraseDetector:
             'negatively charged': ['contrarily charged', 'negatively charged'],
             'transition metal': ['progress metal'],
             
-            # AI/CS (NEW - expanded)
+            # AI/CS
             'artificial intelligence': ['counterfeit consciousness', 'artificial consciousness'],
             'deep neural network': ['profound neural organization', 'deep neural organization'],
             'workflow engine': ['work process motor'],
             'global parameters': ['worldwide parameters'],
-            'machine learning': ['machine picking up', 'machine adapting'],
-            'deep learning': ['profound learning', 'deep picking up'],
-            'neural network': ['neural organization', 'neuronal network'],
-            'training data': ['preparing information', 'training information'],
-            'model accuracy': ['model exactness', 'model precision'],
-            'feature extraction': ['highlight extraction', 'component extraction'],
-            'classification accuracy': ['classification exactness', 'categorization accuracy'],
-            'validation set': ['approval set', 'check set'],
-            'overfitting': ['overfitting', 'over-fitting'],
-            'hyperparameter': ['hyperparameter', 'hyper boundary'],
             
-            # Biology/Medicine (NEW)
-            'gene expression': ['quality articulation', 'gene declaration'],
-            'cell proliferation': ['cell multiplication', 'cell expansion'],
-            'apoptosis': ['apoptosis', 'cell passing'],
-            'signal transduction': ['flag transduction', 'sign transduction'],
-            'immune response': ['safe reaction', 'immune reaction'],
-            'clinical trial': ['clinical preliminary', 'clinical experiment'],
-            'placebo effect': ['placebo impact', 'placebo influence'],
-            'double blind': ['twofold blind', 'double visually impaired'],
-            'sample size': ['test measure', 'sample estimate'],
-            
-            # Common tortured phrases (NEW)
+            # Common tortured phrases
             'certification': ['sertification'],
             'methodology': ['methodologie', 'methodolgy'],
             'analysis': ['analysys', 'analisys'],
@@ -1224,13 +1190,6 @@ class TorturedPhraseDetector:
             'significant': ['significent', 'signifcant'],
             'important': ['importent', 'importnant'],
             'demonstrate': ['demonstate', 'demostrate'],
-            'experiment': ['expiriment', 'experement'],
-            'measurement': ['mesurement', 'measurment'],
-            'parameter': ['paramter', 'paramater'],
-            'algorithm': ['algoritm', 'algorithim'],
-            'dataset': ['datset', 'data-set'],
-            'performance': ['performence', 'preformance'],
-            'evaluation': ['evalution', 'evaluaton'],
         }
         
         # Flatten for easier searching
@@ -1556,491 +1515,6 @@ class RepetitivenessAnalyzer:
         
         return results
 
-class POSNgramAnalyzer:
-    """Analyzes Part-of-Speech n-grams to detect AI patterns"""
-    
-    def __init__(self):
-        self.spacy_available = SPACY_AVAILABLE
-        self.nlp = None
-        
-        if self.spacy_available:
-            try:
-                self.nlp = spacy.load("en_core_web_sm", disable=["parser", "ner"])
-            except:
-                self.spacy_available = False
-        
-        # Common POS patterns in human vs AI academic writing
-        self.human_patterns = [
-            ['NOUN', 'ADP', 'NOUN'],  # noun phrase with preposition
-            ['ADJ', 'NOUN', 'VERB'],  # adjective-noun-verb
-            ['NOUN', 'CCONJ', 'NOUN'],  # compound nouns
-            ['DET', 'NOUN', 'ADP'],  # determiner-noun-preposition
-            ['PRON', 'VERB', 'ADP'],  # personal pronoun patterns
-            ['ADV', 'ADJ', 'NOUN'],  # adverb-adjective-noun
-            ['VERB', 'ADP', 'NOUN'],  # verb-preposition-noun
-            ['AUX', 'ADV', 'VERB'],  # auxiliary patterns
-        ]
-        
-        self.ai_patterns = [
-            ['ADJ', 'ADJ', 'NOUN'],  # double adjective before noun (overuse)
-            ['ADV', 'ADV', 'ADJ'],  # double adverb (overuse)
-            ['NOUN', 'NOUN', 'NOUN'],  # noun stacking (AI tendency)
-            ['ADJ', 'NOUN', 'ADJ'],  # alternating patterns
-            ['ADV', 'VERB', 'ADV'],  # adverb sandwich
-            ['DET', 'ADJ', 'ADJ', 'NOUN'],  # long adjective chains
-            ['VERB', 'VERB', 'NOUN'],  # consecutive verbs
-        ]
-        
-    def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Analyze POS n-gram patterns"""
-        results = {
-            'pos_ngrams': {},
-            'human_pattern_counts': {},
-            'ai_pattern_counts': {},
-            'human_pattern_total': 0,
-            'ai_pattern_total': 0,
-            'pattern_ratio': 0,
-            'pos_distribution': {},
-            'noun_stacking_score': 0,
-            'adverb_overuse_score': 0,
-            'most_common_patterns': [],
-            'risk_score': 0,
-            'confidence': 0,
-            'risk_level': 'none',
-            'note': ''
-        }
-        
-        if not self.spacy_available or len(text) < 100:
-            results['note'] = 'POS analysis requires spaCy'
-            return results
-        
-        try:
-            # Process text with spaCy
-            doc = self.nlp(text[:10000])  # Limit for performance
-            
-            # Collect POS tags for all tokens
-            pos_tags = [token.pos_ for token in doc if not token.is_space]
-            pos_ngrams_3 = []
-            pos_ngrams_4 = []
-            
-            # Generate 3-grams and 4-grams
-            for i in range(len(pos_tags) - 2):
-                pos_ngrams_3.append(' '.join(pos_tags[i:i+3]))
-            for i in range(len(pos_tags) - 3):
-                pos_ngrams_4.append(' '.join(pos_tags[i:i+4]))
-            
-            # Count patterns
-            human_pattern_counts = {str(p): 0 for p in self.human_patterns}
-            ai_pattern_counts = {str(p): 0 for p in self.ai_patterns}
-            
-            # Check 3-grams
-            for ngram in pos_ngrams_3:
-                ngram_list = ngram.split()
-                for pattern in self.human_patterns:
-                    if ngram_list == pattern:
-                        human_pattern_counts[str(pattern)] += 1
-                        results['human_pattern_total'] += 1
-                for pattern in self.ai_patterns:
-                    if ngram_list == pattern:
-                        ai_pattern_counts[str(pattern)] += 1
-                        results['ai_pattern_total'] += 1
-            
-            # Check 4-grams for longer patterns
-            for ngram in pos_ngrams_4:
-                ngram_list = ngram.split()
-                pattern_4 = ngram_list[:4]
-                for pattern in self.ai_patterns:
-                    if len(pattern) == 4 and pattern == pattern_4:
-                        ai_pattern_counts[str(pattern)] += 1
-                        results['ai_pattern_total'] += 1
-            
-            results['human_pattern_counts'] = {k: v for k, v in human_pattern_counts.items() if v > 0}
-            results['ai_pattern_counts'] = {k: v for k, v in ai_pattern_counts.items() if v > 0}
-            
-            # Calculate pattern ratio (higher = more AI-like)
-            total_patterns = results['human_pattern_total'] + results['ai_pattern_total']
-            if total_patterns > 0:
-                results['pattern_ratio'] = results['ai_pattern_total'] / total_patterns
-            
-            # Noun stacking score (consecutive nouns)
-            noun_stack_count = 0
-            for i in range(len(pos_tags) - 2):
-                if pos_tags[i] == 'NOUN' and pos_tags[i+1] == 'NOUN':
-                    noun_stack_count += 1
-            results['noun_stacking_score'] = noun_stack_count / max(len(pos_tags), 1) * 100
-            
-            # Adverb overuse score
-            adv_count = sum(1 for tag in pos_tags if tag == 'ADV')
-            results['adverb_overuse_score'] = adv_count / max(len(pos_tags), 1) * 100
-            
-            # POS distribution
-            pos_counts = Counter(pos_tags)
-            total = len(pos_tags)
-            results['pos_distribution'] = {tag: count/total for tag, count in pos_counts.items()}
-            
-            # Most common patterns
-            all_ngrams = Counter(pos_ngrams_3)
-            results['most_common_patterns'] = all_ngrams.most_common(10)
-            
-            # Risk assessment
-            risk_score = 0
-            confidence = 0.5
-            
-            if results['pattern_ratio'] > 0.6:
-                risk_score += 3
-                confidence = min(confidence + 0.3, 1.0)
-            elif results['pattern_ratio'] > 0.4:
-                risk_score += 2
-                confidence = min(confidence + 0.2, 1.0)
-            elif results['pattern_ratio'] > 0.2:
-                risk_score += 1
-                confidence = min(confidence + 0.1, 1.0)
-            
-            if results['noun_stacking_score'] > 15:
-                risk_score += 2
-                confidence = min(confidence + 0.2, 1.0)
-            elif results['noun_stacking_score'] > 8:
-                risk_score += 1
-                confidence = min(confidence + 0.1, 1.0)
-            
-            if results['adverb_overuse_score'] > 8:
-                risk_score += 2
-                confidence = min(confidence + 0.2, 1.0)
-            elif results['adverb_overuse_score'] > 4:
-                risk_score += 1
-                confidence = min(confidence + 0.1, 1.0)
-            
-            results['risk_score'] = min(risk_score, 6)
-            results['confidence'] = confidence
-            
-            if results['risk_score'] >= 5:
-                results['risk_level'] = 'critical'
-            elif results['risk_score'] >= 4:
-                results['risk_level'] = 'high'
-            elif results['risk_score'] >= 2:
-                results['risk_level'] = 'medium'
-            elif results['risk_score'] >= 1:
-                results['risk_level'] = 'low'
-            
-            results['note'] = 'POS n-gram analysis complete'
-            
-        except Exception as e:
-            results['note'] = f'Error in POS analysis: {str(e)}'
-        
-        return results
-
-class SubordinateClauseAnalyzer:
-    """Analyzes subordinate clause usage and complexity"""
-    
-    def __init__(self):
-        # Subordinate conjunctions
-        self.subordinating_conjunctions = [
-            'although', 'though', 'even though', 'whereas', 'while',
-            'because', 'since', 'as', 'so that', 'in order that',
-            'if', 'unless', 'provided that', 'as long as',
-            'after', 'before', 'when', 'whenever', 'until', 'once',
-            'where', 'wherever', 'whereas',
-            'that', 'which', 'who', 'whom', 'whose',
-            'than', 'rather than', 'as if', 'as though'
-        ]
-        
-        # Relative pronouns
-        self.relative_pronouns = ['that', 'which', 'who', 'whom', 'whose']
-        
-        # Pattern for finding clauses
-        self.clause_patterns = [
-            r'\b(because|since|as)\s+[^.,;!?]+',
-            r'\b(although|though|even though)\s+[^.,;!?]+',
-            r'\b(if|unless)\s+[^.,;!?]+',
-            r'\b(when|while|after|before)\s+[^.,;!?]+',
-            r'[^.,;!?]+\s+(that|which)\s+[^.,;!?]+',
-        ]
-    
-    def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Analyze subordinate clause usage"""
-        results = {
-            'total_sentences': len(sentences),
-            'clauses_found': 0,
-            'clauses_per_sentence': 0,
-            'max_clauses_in_sentence': 0,
-            'relative_clause_count': 0,
-            'adverbial_clause_count': 0,
-            'sentence_complexity_score': 0,
-            'clause_density': 0,
-            'all_clauses': [],
-            'examples': [],
-            'risk_score': 0,
-            'confidence': 0,
-            'risk_level': 'none',
-            'statistics': {
-                'mean_clauses_per_sentence': 0,
-                'median_clauses_per_sentence': 0,
-                'distribution': []
-            }
-        }
-        
-        if not sentences:
-            return results
-        
-        text_lower = text.lower()
-        clause_counts = []
-        
-        for sent in sentences:
-            if not sent or len(sent.strip()) < 10:
-                continue
-            
-            sent_lower = sent.lower()
-            sent_clauses = 0
-            
-            # Count subordinate conjunctions
-            for conj in self.subordinating_conjunctions:
-                sent_clauses += sent_lower.count(conj)
-            
-            # Count relative clauses (more complex)
-            for rel in self.relative_pronouns:
-                # Check if "that/which" appears as relative pronoun (not as determiner)
-                patterns = [r'\b' + rel + r'\s+[a-z]+', r'\b' + rel + r'\s+the\s+']
-                for pattern in patterns:
-                    sent_clauses += len(re.findall(pattern, sent_lower))
-            
-            clause_counts.append(sent_clauses)
-            
-            if sent_clauses > 0:
-                results['clauses_found'] += sent_clauses
-                
-                # Save example clauses
-                for pattern in self.clause_patterns:
-                    matches = re.findall(pattern, sent_lower)
-                    for match in matches[:3]:
-                        if len(results['all_clauses']) < 100:
-                            results['all_clauses'].append({
-                                'sentence': sent[:200],
-                                'clause': match[:100],
-                                'type': 'adverbial' if 'because' in match or 'since' in match or 'although' in match else 'relative'
-                            })
-        
-        if sentences:
-            results['statistics']['mean_clauses_per_sentence'] = float(np.mean(clause_counts)) if clause_counts else 0
-            results['statistics']['median_clauses_per_sentence'] = float(np.median(clause_counts)) if clause_counts else 0
-            results['statistics']['max_clauses_in_sentence'] = float(np.max(clause_counts)) if clause_counts else 0
-            results['statistics']['distribution'] = clause_counts[:200]
-            
-            results['clauses_per_sentence'] = results['statistics']['mean_clauses_per_sentence']
-            results['max_clauses_in_sentence'] = results['statistics']['max_clauses_in_sentence']
-            
-            # Clause density (clauses per 100 words)
-            total_words = len(text.split())
-            if total_words > 0:
-                results['clause_density'] = (results['clauses_found'] * 100) / total_words
-            
-            # Sentence complexity score
-            results['sentence_complexity_score'] = results['clauses_per_sentence'] * 10
-        
-        # Examples for display
-        results['examples'] = [c['clause'] for c in results['all_clauses'][:20]]
-        
-        # Risk assessment
-        risk_score = 0
-        confidence = 0.5
-        
-        # Too few subordinate clauses = AI indicator
-        if results['clauses_per_sentence'] < 0.8:
-            risk_score += 3
-            confidence = min(confidence + 0.3, 1.0)
-        elif results['clauses_per_sentence'] < 1.2:
-            risk_score += 2
-            confidence = min(confidence + 0.2, 1.0)
-        elif results['clauses_per_sentence'] < 1.5:
-            risk_score += 1
-            confidence = min(confidence + 0.1, 1.0)
-        
-        # Too uniform clause distribution (AI tends to be consistent)
-        if clause_counts and np.std(clause_counts) < 0.5:
-            risk_score += 1
-            confidence = min(confidence + 0.1, 1.0)
-        
-        results['risk_score'] = min(risk_score, 6)
-        results['confidence'] = confidence
-        
-        if results['risk_score'] >= 5:
-            results['risk_level'] = 'critical'
-        elif results['risk_score'] >= 4:
-            results['risk_level'] = 'high'
-        elif results['risk_score'] >= 2:
-            results['risk_level'] = 'medium'
-        elif results['risk_score'] >= 1:
-            results['risk_level'] = 'low'
-        
-        return results
-
-class StyleDriftAnalyzer:
-    """Analyzes style consistency across document sections"""
-    
-    def __init__(self):
-        self.section_indicators = {
-            'introduction': ['introduction', 'background', 'intro'],
-            'methods': ['methods', 'methodology', 'experimental', 'materials'],
-            'results': ['results', 'findings', 'outcomes'],
-            'discussion': ['discussion', 'conclusion', 'conclusions', 'summary']
-        }
-    
-    def split_sections(self, text: str) -> Dict[str, str]:
-        """Split text into logical sections"""
-        sections = {}
-        lines = text.split('\n')
-        current_section = 'unknown'
-        current_content = []
-        
-        for line in lines:
-            line_lower = line.lower().strip()
-            
-            # Check if line is a section header
-            section_found = False
-            for section, indicators in self.section_indicators.items():
-                if any(indicator in line_lower for indicator in indicators) and len(line_lower) < 100:
-                    if current_content and current_section != 'unknown':
-                        sections[current_section] = '\n'.join(current_content)
-                    current_section = section
-                    current_content = []
-                    section_found = True
-                    break
-            
-            if not section_found:
-                current_content.append(line)
-        
-        # Add last section
-        if current_content:
-            sections[current_section] = '\n'.join(current_content)
-        
-        return sections
-    
-    def calculate_section_metrics(self, section_text: str) -> Dict:
-        """Calculate key metrics for a section"""
-        if not section_text or len(section_text.split()) < 50:
-            return {}
-        
-        words = section_text.split()
-        sentences = re.split(r'[.!?]+', section_text)
-        sentences = [s for s in sentences if len(s.strip()) > 10]
-        
-        # Calculate metrics
-        sent_lengths = [len(s.split()) for s in sentences] if sentences else []
-        
-        # Basic metrics
-        metrics = {
-            'avg_sentence_length': np.mean(sent_lengths) if sent_lengths else 0,
-            'sentence_variance': np.var(sent_lengths) if sent_lengths else 0,
-            'ttr': len(set(words)) / len(words) if words else 0,
-        }
-        
-        # Hedging count
-        hedging_words = ['may', 'might', 'could', 'would', 'likely', 'possibly', 'suggests', 'indicates']
-        metrics['hedging_density'] = sum(1 for w in words if w.lower() in hedging_words) / len(words) * 100 if words else 0
-        
-        # Passive voice indicator
-        passive_pattern = r'\b(was|were|is|are|been|being)\s+(\w+ed|\w+en)\b'
-        metrics['passive_density'] = len(re.findall(passive_pattern, section_text)) / len(words) * 100 if words else 0
-        
-        return metrics
-    
-    def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Analyze style consistency across document"""
-        results = {
-            'sections': {},
-            'section_metrics': {},
-            'drift_scores': {},
-            'max_drift': 0,
-            'drift_threshold_exceeded': False,
-            'inconsistent_sections': [],
-            'risk_score': 0,
-            'confidence': 0,
-            'risk_level': 'none',
-            'recommendation': ''
-        }
-        
-        # Split into sections
-        sections = self.split_sections(text)
-        
-        if len(sections) < 2:
-            results['recommendation'] = 'Insufficient sections for drift analysis'
-            return results
-        
-        results['sections'] = {k: v[:500] for k, v in sections.items()}
-        
-        # Calculate metrics for each section
-        for section_name, section_text in sections.items():
-            if len(section_text.split()) > 50:
-                results['section_metrics'][section_name] = self.calculate_section_metrics(section_text)
-        
-        if len(results['section_metrics']) < 2:
-            results['recommendation'] = 'Insufficient section data for drift analysis'
-            return results
-        
-        # Calculate drift between sections
-        section_names = list(results['section_metrics'].keys())
-        metrics_to_compare = ['avg_sentence_length', 'ttr', 'hedging_density', 'passive_density']
-        
-        for i in range(len(section_names) - 1):
-            sec1 = section_names[i]
-            sec2 = section_names[i+1]
-            metrics1 = results['section_metrics'][sec1]
-            metrics2 = results['section_metrics'][sec2]
-            
-            drift = 0
-            drift_details = {}
-            
-            for metric in metrics_to_compare:
-                if metric in metrics1 and metric in metrics2 and metrics1[metric] > 0:
-                    relative_change = abs(metrics1[metric] - metrics2[metric]) / metrics1[metric]
-                    drift += relative_change
-                    drift_details[metric] = relative_change
-            
-            avg_drift = drift / len(metrics_to_compare)
-            results['drift_scores'][f'{sec1}→{sec2}'] = {
-                'overall_drift': avg_drift,
-                'details': drift_details
-            }
-            
-            if avg_drift > 0.25:  # 25% drift threshold
-                results['drift_threshold_exceeded'] = True
-                results['inconsistent_sections'].append((sec1, sec2))
-                results['max_drift'] = max(results['max_drift'], avg_drift)
-        
-        # Risk assessment
-        risk_score = 0
-        confidence = 0.5
-        
-        if results['drift_threshold_exceeded']:
-            if results['max_drift'] > 0.5:
-                risk_score = 5
-                confidence = 0.9
-                results['recommendation'] = 'HIGH STYLE DRIFT detected. Different sections show very different writing patterns - possible AI generation or mixing of sources.'
-            elif results['max_drift'] > 0.35:
-                risk_score = 4
-                confidence = 0.8
-                results['recommendation'] = 'MODERATE STYLE DRIFT detected. Style changes significantly between sections.'
-            else:
-                risk_score = 3
-                confidence = 0.7
-                results['recommendation'] = 'NOTICEABLE STYLE DRIFT detected. Review for consistency.'
-        else:
-            risk_score = 0
-            confidence = 0.6
-            results['recommendation'] = 'Style consistent across sections. Good sign of human authorship.'
-        
-        results['risk_score'] = min(risk_score, 6)
-        results['confidence'] = confidence
-        
-        if results['risk_score'] >= 5:
-            results['risk_level'] = 'critical'
-        elif results['risk_score'] >= 4:
-            results['risk_level'] = 'high'
-        elif results['risk_score'] >= 2:
-            results['risk_level'] = 'medium'
-        elif results['risk_score'] >= 1:
-            results['risk_level'] = 'low'
-        
-        return results
 
 class LexicalDiversityAnalyzer:
     """Lexical diversity analysis (MTLD, MATTR, HD-D)"""
@@ -2340,329 +1814,6 @@ class MLClassifier:
         
         return results
 
-class GrammarlyAPIClient:
-    """Integration with Grammarly API for grammar checking"""
-    
-    def __init__(self):
-        self.available = False
-        self.api_key = None
-        # Note: Grammarly API is enterprise-only. This is a template structure.
-        # For actual implementation, you'd need to sign up for Grammarly Business API
-        # or use alternatives like LanguageTool API
-    
-    def set_api_key(self, api_key: str):
-        """Set Grammarly API key"""
-        self.api_key = api_key
-        self.available = True if api_key else False
-    
-    def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Send text to Grammarly API for analysis"""
-        results = {
-            'grammarly_score': 0,
-            'errors_found': 0,
-            'error_types': {},
-            'severity_distribution': {},
-            'suggestions': [],
-            'grammar_issues': [],
-            'spelling_issues': [],
-            'style_issues': [],
-            'clarity_issues': [],
-            'risk_score': 0,
-            'confidence': 0,
-            'risk_level': 'none',
-            'note': 'Grammarly API integration requires API key'
-        }
-        
-        if not self.available or not self.api_key:
-            return results
-        
-        # This is a template - actual implementation would use Grammarly's API
-        # Since Grammarly API is enterprise-only, consider using LanguageTool instead
-        # Below is a placeholder structure
-        
-        try:
-            # Example API call structure (not actual code)
-            # import requests
-            # response = requests.post(
-            #     'https://api.grammarly.com/v1/checks',
-            #     headers={'Authorization': f'Bearer {self.api_key}'},
-            #     json={'text': text}
-            # )
-            # data = response.json()
-            
-            # For demonstration, we'll use a placeholder
-            results['note'] = 'Grammarly API integration requires actual API key'
-            
-            # Placeholder risk assessment based on error count
-            # More errors = more human-like (AI-generated text has fewer errors)
-            # results['errors_found'] = data.get('total_errors', 0)
-            # if results['errors_found'] > 10:
-            #     results['risk_score'] = 0
-            # elif results['errors_found'] < 2:
-            #     results['risk_score'] = 3
-            
-        except Exception as e:
-            results['note'] = f'Grammarly API error: {str(e)}'
-        
-        return results
-
-
-class LanguageToolIntegration:
-    """Integration with LanguageTool API (free alternative to Grammarly)"""
-    
-    def __init__(self):
-        self.base_url = "https://api.languagetool.org/v2/check"
-    
-    def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Send text to LanguageTool for grammar checking"""
-        results = {
-            'errors_found': 0,
-            'error_types': {},
-            'severity_distribution': {},
-            'suggestions': [],
-            'grammar_issues': [],
-            'spelling_issues': [],
-            'style_issues': [],
-            'risk_score': 0,
-            'confidence': 0,
-            'risk_level': 'none',
-            'note': ''
-        }
-        
-        if len(text) < 100:
-            results['note'] = 'Text too short for meaningful grammar analysis'
-            return results
-        
-        try:
-            import requests
-            
-            # Limit text to reasonable size (first 5000 chars for speed)
-            text_sample = text[:5000]
-            
-            response = requests.post(
-                self.base_url,
-                data={
-                    'text': text_sample,
-                    'language': 'en-US',
-                    'enabledOnly': 'false'
-                },
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                matches = data.get('matches', [])
-                results['errors_found'] = len(matches)
-                
-                # Categorize errors
-                for match in matches[:100]:
-                    error_type = match.get('rule', {}).get('issueType', 'unknown')
-                    severity = match.get('rule', {}).get('category', {}).get('id', 'unknown')
-                    
-                    results['error_types'][error_type] = results['error_types'].get(error_type, 0) + 1
-                    results['severity_distribution'][severity] = results['severity_distribution'].get(severity, 0) + 1
-                    
-                    suggestion = {
-                        'message': match.get('message', ''),
-                        'context': match.get('context', {}).get('text', ''),
-                        'replacements': [r.get('value', '') for r in match.get('replacements', [])[:3]]
-                    }
-                    
-                    if len(results['suggestions']) < 30:
-                        results['suggestions'].append(suggestion)
-                    
-                    if error_type == 'Grammar':
-                        results['grammar_issues'].append(suggestion)
-                    elif error_type == 'Spelling':
-                        results['spelling_issues'].append(suggestion)
-                    elif error_type == 'Style':
-                        results['style_issues'].append(suggestion)
-                
-                # Risk assessment
-                # AI-generated text typically has FEWER grammar errors
-                # Too few errors = suspicious
-                # Expected errors per 1000 words in human writing: 3-8
-                total_words = len(text.split())
-                error_rate = (results['errors_found'] * 1000) / max(total_words, 1)
-                
-                risk_score = 0
-                confidence = 0.5
-                
-                if error_rate < 1.5:
-                    risk_score = 4  # Very few errors - possible AI
-                    confidence = 0.85
-                elif error_rate < 3.0:
-                    risk_score = 3
-                    confidence = 0.75
-                elif error_rate < 5.0:
-                    risk_score = 2
-                    confidence = 0.65
-                elif error_rate < 8.0:
-                    risk_score = 1  # Normal human range
-                    confidence = 0.6
-                else:
-                    risk_score = 0  # Many errors - clearly human
-                    confidence = 0.5
-                
-                results['risk_score'] = risk_score
-                results['confidence'] = confidence
-                
-                if risk_score >= 4:
-                    results['risk_level'] = 'high'
-                elif risk_score >= 2:
-                    results['risk_level'] = 'medium'
-                elif risk_score >= 1:
-                    results['risk_level'] = 'low'
-                
-                results['note'] = f'LanguageTool analysis: {results["errors_found"]} issues found ({error_rate:.1f} per 1000 words)'
-                
-            else:
-                results['note'] = f'LanguageTool API error: {response.status_code}'
-                
-        except ImportError:
-            results['note'] = 'requests library required for LanguageTool integration'
-        except Exception as e:
-            results['note'] = f'LanguageTool error: {str(e)}'
-        
-        return results
-
-class ExternalAIDetectorIntegration:
-    """Integration with external AI detection APIs"""
-    
-    def __init__(self):
-        self.api_keys = {
-            'gptzero': None,
-            'originality': None,
-            'sapling': None
-        }
-        self.available_apis = []
-    
-    def set_api_key(self, service: str, api_key: str):
-        """Set API key for external service"""
-        if service in self.api_keys:
-            self.api_keys[service] = api_key
-            if api_key:
-                self.available_apis.append(service)
-    
-    def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Query multiple external AI detectors"""
-        results = {
-            'gptzero_score': None,
-            'originality_score': None,
-            'sapling_score': None,
-            'aggregated_score': 0,
-            'sources_used': [],
-            'individual_results': {},
-            'risk_score': 0,
-            'confidence': 0,
-            'risk_level': 'none',
-            'note': ''
-        }
-        
-        if not self.available_apis:
-            results['note'] = 'No external API keys configured'
-            return results
-        
-        scores = []
-        
-        # GPTZero integration
-        if 'gptzero' in self.available_apis and self.api_keys['gptzero']:
-            try:
-                # GPTZero API endpoint structure
-                # Actual implementation would use:
-                # import requests
-                # response = requests.post(
-                #     'https://api.gptzero.me/v2/predict',
-                #     headers={'x-api-key': self.api_keys['gptzero']},
-                #     json={'document': text}
-                # )
-                # data = response.json()
-                # score = data.get('score', 0)
-                
-                # Placeholder for demonstration
-                score = 0.5  # Simulated score
-                results['gptzero_score'] = score
-                results['individual_results']['gptzero'] = score
-                scores.append(score)
-                results['sources_used'].append('GPTZero')
-            except Exception as e:
-                results['individual_results']['gptzero_error'] = str(e)
-        
-        # Originality.ai integration
-        if 'originality' in self.available_apis and self.api_keys['originality']:
-            try:
-                # Originality.ai API structure
-                # import requests
-                # response = requests.post(
-                #     'https://api.originality.ai/api/v1/scan/text',
-                #     headers={'API-Key': self.api_keys['originality']},
-                #     json={'content': text}
-                # )
-                # data = response.json()
-                # score = data.get('score', 0)
-                
-                score = 0.5  # Simulated
-                results['originality_score'] = score
-                results['individual_results']['originality'] = score
-                scores.append(score)
-                results['sources_used'].append('Originality.ai')
-            except Exception as e:
-                results['individual_results']['originality_error'] = str(e)
-        
-        # Sapling AI Detector integration
-        if 'sapling' in self.available_apis and self.api_keys['sapling']:
-            try:
-                # Sapling AI detector API
-                # import requests
-                # response = requests.post(
-                #     'https://api.sapling.ai/api/v1/aidetect',
-                #     json={'key': self.api_keys['sapling'], 'text': text}
-                # )
-                # data = response.json()
-                # score = data.get('score', 0)
-                
-                score = 0.5  # Simulated
-                results['sapling_score'] = score
-                results['individual_results']['sapling'] = score
-                scores.append(score)
-                results['sources_used'].append('Sapling')
-            except Exception as e:
-                results['individual_results']['sapling_error'] = str(e)
-        
-        # Aggregate scores
-        if scores:
-            results['aggregated_score'] = np.mean(scores) * 100  # Convert to percentage
-            
-            # Risk assessment based on aggregated score
-            risk_score = 0
-            confidence = 0.5
-            
-            if results['aggregated_score'] > 70:
-                risk_score = 5
-                confidence = 0.9
-            elif results['aggregated_score'] > 50:
-                risk_score = 4
-                confidence = 0.8
-            elif results['aggregated_score'] > 30:
-                risk_score = 2
-                confidence = 0.7
-            else:
-                risk_score = 1
-                confidence = 0.6
-            
-            results['risk_score'] = risk_score
-            results['confidence'] = confidence
-            
-            if risk_score >= 5:
-                results['risk_level'] = 'critical'
-            elif risk_score >= 4:
-                results['risk_level'] = 'high'
-            elif risk_score >= 2:
-                results['risk_level'] = 'medium'
-            else:
-                results['risk_level'] = 'low'
-        
-        return results
 
 class GrammarAnalyzer:
     """Grammar feature analysis (without spacy, simplified version)"""
@@ -3199,42 +2350,26 @@ class PunctuationAnalyzer:
         return results
 
 class ApostropheAnalyzer:
-    """Apostrophe analysis with separation of contractions and possessives"""
+    """Apostrophe 's analysis (new module)"""
     
     def __init__(self):
         self.apostrophe_pattern = r"\w+'\w+"
-        
-        # Contraction patterns
-        self.contraction_patterns = [
-            r"\w+'t\b",   # don't, can't, won't
-            r"\w+'re\b",  # they're, we're
-            r"\w+'ve\b",  # we've, they've
-            r"\w+'ll\b",  # I'll, we'll
-            r"\w+'m\b",   # I'm
-            r"\w+'d\b",   # I'd, we'd
-        ]
-        
-        # Possessive patterns (with 's)
-        self.possessive_pattern = r"\w+'s\b"
     
     def analyze(self, text: str) -> Dict:
-        """Analyze apostrophe usage with detailed classification"""
+        """Analyze apostrophe usage"""
         results = {
             'apostrophe_count': 0,
             'apostrophe_per_1000': 0,
-            'contraction_count': 0,
-            'possessive_count': 0,
-            'contraction_per_1000': 0,
-            'possessive_per_1000': 0,
-            'contraction_examples': [],
             'possessive_examples': [],
-            'all_apostrophes': [],
+            'contraction_examples': [],
+            'all_apostrophes': [],  # All found apostrophes
             'risk_level': 'none',
             'risk_score': 0,
             'confidence': 0,
             'statistics': {
-                'contraction_ratio': 0,  # contractions / total apostrophes
-                'possessive_ratio': 0,
+                'mean_apostrophes_per_paragraph': 0,
+                'median_apostrophes_per_paragraph': 0,
+                'max_apostrophes_in_paragraph': 0,
                 'distribution': []
             }
         }
@@ -3249,74 +2384,64 @@ class ApostropheAnalyzer:
         apostrophe_matches = re.findall(self.apostrophe_pattern, text)
         results['apostrophe_count'] = len(apostrophe_matches)
         
-        # Classify contractions
-        for pattern in self.contraction_patterns:
-            contractions = re.findall(pattern, text, re.IGNORECASE)
-            results['contraction_count'] += len(contractions)
-            for match in contractions[:10]:
-                if len(results['contraction_examples']) < 30 and match not in results['contraction_examples']:
-                    results['contraction_examples'].append(match)
-        
-        # Classify possessives
-        possessives = re.findall(self.possessive_pattern, text, re.IGNORECASE)
-        results['possessive_count'] = len(possessives)
-        
-        for match in possessives[:30]:
-            if len(results['possessive_examples']) < 30:
-                results['possessive_examples'].append(match)
-        
-        # Collect all apostrophes
-        results['all_apostrophes'] = apostrophe_matches[:200]
-        
         # Normalize per 1000 words
         if total_words > 0:
             results['apostrophe_per_1000'] = (results['apostrophe_count'] * 1000) / total_words
-            results['contraction_per_1000'] = (results['contraction_count'] * 1000) / total_words
-            results['possessive_per_1000'] = (results['possessive_count'] * 1000) / total_words
         
-        # Calculate ratios
-        if results['apostrophe_count'] > 0:
-            results['statistics']['contraction_ratio'] = results['contraction_count'] / results['apostrophe_count']
-            results['statistics']['possessive_ratio'] = results['possessive_count'] / results['apostrophe_count']
+        # Classify examples
+        for match in apostrophe_matches:
+            match_data = match
+            results['all_apostrophes'].append(match_data)
+            
+            if match.endswith("'s") and len(match) > 2:
+                base_word = match[:-2]
+                if base_word.isalpha() and len(results['possessive_examples']) < 50:
+                    results['possessive_examples'].append(match)
+            elif any(cont in match for cont in ["'t", "'re", "'ve", "'ll", "'m", "'d"]):
+                if len(results['contraction_examples']) < 30:
+                    results['contraction_examples'].append(match)
         
-        # Risk assessment - updated with contraction analysis
+        # Statistics by paragraph
+        paragraphs = re.split(r'\n\s*\n', text)
+        apostrophes_per_paragraph = []
+        
+        for para in paragraphs[:50]:
+            para_apostrophes = len(re.findall(self.apostrophe_pattern, para))
+            apostrophes_per_paragraph.append(para_apostrophes)
+        
+        if apostrophes_per_paragraph:
+            results['statistics']['mean_apostrophes_per_paragraph'] = float(np.mean(apostrophes_per_paragraph))
+            results['statistics']['median_apostrophes_per_paragraph'] = float(np.median(apostrophes_per_paragraph))
+            results['statistics']['max_apostrophes_in_paragraph'] = float(np.max(apostrophes_per_paragraph))
+            results['statistics']['distribution'] = apostrophes_per_paragraph
+        
+        # Risk assessment - УВЕЛИЧЕННЫЕ ЗНАЧЕНИЯ
         risk_score = 0
         confidence = 0.5
         
-        # High apostrophe usage overall
         if results['apostrophe_per_1000'] > 2.0:
-            risk_score += 4
+            risk_score = 5                      # было 3, стало 5
             confidence = 0.9
         elif results['apostrophe_per_1000'] > 1.0:
-            risk_score += 3
+            risk_score = 4                      # было 2, стало 4
             confidence = 0.7
         elif results['apostrophe_per_1000'] > 0.3:
-            risk_score += 2
+            risk_score = 3                      # было 1, стало 3
             confidence = 0.6
         else:
-            risk_score += 1
+            risk_score = 1                      # было 0, стало 1 (минимальный риск)
             confidence = 0.5
         
-        # Contractions are a STRONG human indicator
-        if results['contraction_per_1000'] > 0.5:
-            risk_score = max(0, risk_score - 2)  # Reduce risk for contractions
-            confidence = min(confidence + 0.2, 1.0)
-            results['note'] = 'Contractions detected - human-like informality'
-        
-        # Possessives are neutral to slightly human
-        if results['possessive_per_1000'] > 1.0:
-            risk_score = max(0, risk_score - 1)
-        
-        results['risk_score'] = min(risk_score, 6)
+        results['risk_score'] = risk_score
         results['confidence'] = confidence
         
-        if results['risk_score'] >= 5:
+        if risk_score >= 5:
             results['risk_level'] = 'critical'
-        elif results['risk_score'] >= 4:
+        elif risk_score >= 4:
             results['risk_level'] = 'high'
-        elif results['risk_score'] >= 2:
+        elif risk_score >= 2:
             results['risk_level'] = 'medium'
-        elif results['risk_score'] >= 1:
+        elif risk_score >= 1:
             results['risk_level'] = 'low'
         else:
             results['risk_level'] = 'very_low'
@@ -3885,31 +3010,25 @@ class IntegratedRiskScorer:
     def __init__(self):
         # Module weights (updated with tortured_phrases - weight 0.10)
         self.weights = {
-            'unicode': 0.20,
-            'dashes': 0.08,
+            'unicode': 0.25,
+            'dashes': 0.10,          # немного уменьшили, чтобы освободить место
             'phrases': 0.06,
-            'tortured_phrases': 0.10,
-            'burstiness': 0.03,
-            'grammar': 0.04,
-            'hedging': 0.05,
-            'paragraph': 0.02,
+            'tortured_phrases': 0.10,  # НОВЫЙ модуль с весом 10%
+            'burstiness': 0.04,
+            'grammar': 0.05,
+            'hedging': 0.06,
+            'paragraph': 0.03,
             'perplexity': 0.02,
             'semantic': 0.02,
             'parenthesis': 0.03,
             'punctuation': 0.03,
-            'apostrophe': 0.06,
-            'enumeration': 0.05,
+            'apostrophe': 0.07,
+            'enumeration': 0.06,
             'repetitiveness': 0.03,
             'lexical_diversity': 0.02,
             'log_prob': 0.01,
-            'ml_classifier': 0.02,
-            'pos_ngrams': 0.04,  # NEW
-            'subordinate_clauses': 0.04,  # NEW
-            'style_drift': 0.05,  # NEW
-            'discipline': 0.03,  # NEW
-            'languagetool': 0.03,  # NEW
-            'external_ai': 0.04  # NEW
-        }    
+            'ml_classifier': 0.02
+        }
                
         # Normalize weights
         total = sum(self.weights.values())
@@ -4013,197 +3132,6 @@ class IntegratedRiskScorer:
             'module_scores': module_scores,
             'available_modules': available_modules
         }
-
-class DisciplineAnalyzer:
-    """Analyzer that adapts thresholds based on scientific discipline"""
-    
-    def __init__(self):
-        # Discipline-specific baseline metrics (based on analysis of real papers)
-        self.discipline_baselines = {
-            'physics': {
-                'ttr': 0.52,
-                'mtld': 68,
-                'hedging_per_1000': 4.2,
-                'passive_percentage': 35,
-                'sentence_length_mean': 22.5,
-                'apostrophe_per_1000': 0.8,
-                'ai_phrase_threshold': 0.08,
-                'description': 'Physics papers: concise, high passive voice, moderate hedging'
-            },
-            'chemistry': {
-                'ttr': 0.48,
-                'mtld': 62,
-                'hedging_per_1000': 3.8,
-                'passive_percentage': 42,
-                'sentence_length_mean': 21.0,
-                'apostrophe_per_1000': 0.6,
-                'ai_phrase_threshold': 0.07,
-                'description': 'Chemistry papers: very high passive voice, low hedging'
-            },
-            'biology': {
-                'ttr': 0.54,
-                'mtld': 74,
-                'hedging_per_1000': 5.5,
-                'passive_percentage': 38,
-                'sentence_length_mean': 24.0,
-                'apostrophe_per_1000': 1.2,
-                'ai_phrase_threshold': 0.09,
-                'description': 'Biology papers: higher hedging, longer sentences'
-            },
-            'medicine': {
-                'ttr': 0.51,
-                'mtld': 70,
-                'hedging_per_1000': 6.0,
-                'passive_percentage': 32,
-                'sentence_length_mean': 23.5,
-                'apostrophe_per_1000': 1.5,
-                'ai_phrase_threshold': 0.10,
-                'description': 'Medical papers: high hedging, varied sentence length'
-            },
-            'computer_science': {
-                'ttr': 0.56,
-                'mtld': 80,
-                'hedging_per_1000': 3.5,
-                'passive_percentage': 28,
-                'sentence_length_mean': 20.0,
-                'apostrophe_per_1000': 1.0,
-                'ai_phrase_threshold': 0.12,
-                'description': 'CS papers: higher lexical diversity, lower hedging'
-            },
-            'humanities': {
-                'ttr': 0.62,
-                'mtld': 85,
-                'hedging_per_1000': 7.5,
-                'passive_percentage': 25,
-                'sentence_length_mean': 26.0,
-                'apostrophe_per_1000': 2.0,
-                'ai_phrase_threshold': 0.15,
-                'description': 'Humanities: highest lexical diversity, most hedging'
-            },
-            'engineering': {
-                'ttr': 0.49,
-                'mtld': 65,
-                'hedging_per_1000': 3.2,
-                'passive_percentage': 44,
-                'sentence_length_mean': 21.5,
-                'apostrophe_per_1000': 0.5,
-                'ai_phrase_threshold': 0.06,
-                'description': 'Engineering: very high passive voice, low hedging'
-            }
-        }
-        
-        # Simple keyword-based discipline detection
-        self.discipline_keywords = {
-            'physics': ['quantum', 'particle', 'field theory', 'photon', 'electron', 'nuclear', 'plasma', 'relativity', 'thermodynamics', 'optics'],
-            'chemistry': ['molecule', 'synthesis', 'catalyst', 'reaction', 'polymer', 'solvent', 'titration', 'chromatography', 'spectroscopy', 'nanoparticle'],
-            'biology': ['cell', 'gene', 'protein', 'dna', 'rna', 'organism', 'evolution', 'enzyme', 'membrane', 'mitochondria', 'metabolism'],
-            'medicine': ['patient', 'clinical', 'treatment', 'diagnosis', 'therapy', 'disease', 'surgery', 'pharmacology', 'symptom', 'vaccine'],
-            'computer_science': ['algorithm', 'neural network', 'machine learning', 'dataset', 'code', 'python', 'java', 'database', 'cloud', 'api'],
-            'humanities': ['literature', 'philosophy', 'history', 'cultural', 'discourse', 'narrative', 'hermeneutics', 'ontology', 'epistemology'],
-            'engineering': ['circuit', 'mechanical', 'structural', 'thermal', 'aerospace', 'robotics', 'control system', 'manufacturing', 'civil']
-        }
-    
-    def detect_discipline(self, text: str) -> Tuple[str, float]:
-        """Detect the most likely discipline based on keywords"""
-        text_lower = text.lower()
-        scores = {}
-        
-        for discipline, keywords in self.discipline_keywords.items():
-            score = sum(1 for keyword in keywords if keyword.lower() in text_lower)
-            scores[discipline] = score
-        
-        if not scores or max(scores.values()) == 0:
-            return 'general', 0.0
-        
-        best_discipline = max(scores, key=scores.get)
-        confidence = scores[best_discipline] / sum(scores.values()) if sum(scores.values()) > 0 else 0
-        
-        return best_discipline, confidence
-    
-    def adjust_risk_score(self, original_score: float, module_name: str, metric_value: float, discipline: str) -> float:
-        """Adjust risk score based on discipline-specific baselines"""
-        if discipline not in self.discipline_baselines:
-            return original_score
-        
-        baseline = self.discipline_baselines[discipline]
-        adjusted_score = original_score
-        
-        # Adjust based on metric type
-        if module_name == 'lexical_diversity':
-            if metric_value < baseline['ttr'] * 0.85:  # 15% below baseline
-                adjusted_score *= 1.3
-            elif metric_value > baseline['ttr'] * 1.15:  # 15% above baseline
-                adjusted_score *= 0.7
-                
-        elif module_name == 'hedging':
-            if metric_value < baseline['hedging_per_1000'] * 0.7:
-                adjusted_score *= 1.4
-            elif metric_value > baseline['hedging_per_1000'] * 1.5:
-                adjusted_score *= 0.8
-                
-        elif module_name == 'grammar':
-            if metric_value > baseline['passive_percentage'] * 1.3:
-                adjusted_score *= 1.2
-            elif metric_value < baseline['passive_percentage'] * 0.7:
-                adjusted_score *= 0.8
-                
-        elif module_name == 'apostrophe':
-            if metric_value > baseline['apostrophe_per_1000'] * 2.0:
-                adjusted_score *= 1.2
-            elif metric_value < baseline['apostrophe_per_1000'] * 0.5:
-                adjusted_score *= 0.8
-        
-        return min(adjusted_score, 6.0)  # Cap at max score
-    
-    def analyze(self, text: str, results: Dict) -> Dict:
-        """Analyze text with discipline awareness"""
-        discipline, confidence = self.detect_discipline(text)
-        
-        analysis = {
-            'detected_discipline': discipline,
-            'discipline_confidence': confidence,
-            'discipline_description': self.discipline_baselines.get(discipline, {}).get('description', 'General academic text'),
-            'baseline_metrics': self.discipline_baselines.get(discipline, {}),
-            'deviations': {},
-            'adjusted_risk_scores': {},
-            'recommendation': ''
-        }
-        
-        # Calculate deviations for key metrics
-        baseline = self.discipline_baselines.get(discipline, {})
-        
-        if 'lexical_diversity' in results:
-            ttr = results['lexical_diversity'].get('ttr', 0)
-            if ttr > 0:
-                baseline_ttr = baseline.get('ttr', 0.52)
-                deviation = (ttr - baseline_ttr) / baseline_ttr if baseline_ttr > 0 else 0
-                analysis['deviations']['ttr'] = deviation
-                analysis['adjusted_risk_scores']['lexical_diversity'] = self.adjust_risk_score(
-                    results['lexical_diversity'].get('risk_score', 0), 'lexical_diversity', ttr, discipline
-                )
-        
-        if 'hedging' in results:
-            hedging = results['hedging'].get('hedging_per_1000', 0)
-            baseline_hedging = baseline.get('hedging_per_1000', 4.5)
-            deviation = (hedging - baseline_hedging) / baseline_hedging if baseline_hedging > 0 else 0
-            analysis['deviations']['hedging'] = deviation
-            analysis['adjusted_risk_scores']['hedging'] = self.adjust_risk_score(
-                results['hedging'].get('risk_score', 0), 'hedging', hedging, discipline
-            )
-        
-        if 'grammar' in results:
-            passive = results['grammar'].get('passive_percentage', 0)
-            baseline_passive = baseline.get('passive_percentage', 35)
-            deviation = (passive - baseline_passive) / baseline_passive if baseline_passive > 0 else 0
-            analysis['deviations']['passive_voice'] = deviation
-        
-        # Generate recommendation based on discipline
-        if confidence > 0.3:
-            analysis['recommendation'] = f"Text appears to be in {discipline} domain. Adjusting thresholds accordingly."
-        else:
-            analysis['recommendation'] = "Discipline not clearly detected. Using general academic baselines."
-        
-        return analysis
         
 class DocumentProcessor:
     """Uploaded document processor"""
@@ -4280,89 +3208,6 @@ class DocumentProcessor:
         # Remove extra line breaks
         text = re.sub(r'\n\s*\n', '\n\n', text)
         return text.strip()
-
-    @staticmethod
-    def generate_annotated_text(text: str, results: Dict) -> str:
-        """Generate HTML with highlighted suspicious sections"""
-        
-        # Start with base HTML
-        html = '<div style="font-family: monospace; line-height: 1.6;">'
-        
-        # Collect all suspicious positions
-        highlights = []
-        
-        # Highlight tortured phrases
-        if 'tortured_phrases' in results:
-            for occ in results['tortured_phrases'].get('all_occurrences', []):
-                context = occ.get('context', '')
-                tortured = occ.get('tortured', '')
-                if tortured in context:
-                    start = context.find(tortured)
-                    if start >= 0:
-                        highlights.append({
-                            'start': start,
-                            'end': start + len(tortured),
-                            'color': '#ffcccc',
-                            'tooltip': f'Tortured phrase: {tortured} → {occ.get("correct", "")}'
-                        })
-        
-        # Highlight AI phrases
-        if 'phrases' in results:
-            for occ in results['phrases'].get('all_phrase_occurrences', []):
-                phrase = occ.get('phrase', '')
-                context = occ.get('context', '')
-                if phrase in context:
-                    start = context.find(phrase)
-                    if start >= 0:
-                        highlights.append({
-                            'start': start,
-                            'end': start + len(phrase),
-                            'color': '#ffffcc',
-                            'tooltip': f'AI phrase: "{phrase}"'
-                        })
-        
-        # Highlight sentences with double dashes
-        if 'dashes' in results:
-            for item in results['dashes'].get('double_dash_sentences', []):
-                sentence = item.get('sentence', '')
-                dash_pos = sentence.find('—')
-                if dash_pos >= 0:
-                    highlights.append({
-                        'start': max(0, dash_pos - 20),
-                        'end': min(len(sentence), dash_pos + 20),
-                        'color': '#ffe0b3',
-                        'tooltip': f'Sentence with two dashes ({item.get("dash_count", 0)} dashes)'
-                    })
-        
-        # Highlight enumerations
-        if 'enumeration' in results:
-            for enum in results['enumeration'].get('all_enumerations', []):
-                enumeration = enum.get('enumeration', '')
-                sentence = enum.get('full_sentence', '')
-                if enumeration in sentence:
-                    start = sentence.find(enumeration)
-                    if start >= 0:
-                        highlights.append({
-                            'start': start,
-                            'end': start + len(enumeration),
-                            'color': '#cce5ff',
-                            'tooltip': f'Strict enumeration pattern: {enumeration[:50]}'
-                        })
-        
-        # Sort highlights by start position
-        highlights.sort(key=lambda x: x['start'])
-        
-        # Build HTML with highlights
-        # This is a simplified version - full implementation would need more sophisticated merging
-        html += '<pre style="white-space: pre-wrap;">'
-        
-        # For now, return a simple version
-        html += text[:5000]  # Limit for performance
-        
-        html += '</pre>'
-        html += '</div>'
-        
-        return html
 
 def format_authors(authors_list):
     """Форматирование списка авторов для PDF"""
@@ -5695,51 +4540,6 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                     story.append(Paragraph(f"{label}: {clean_example}...", example_style))
             
             story.append(PageBreak())
-
-            if report_type == "full" and 'tortured_phrases' in results:
-                add_section_header(story, "4.3 Annotated Text (Suspicious Sections)", level=2)
-                
-                # Add examples of highlighted sections
-                if 'tortured_phrases' in results:
-                    tortured_occ = results['tortured_phrases'].get('all_occurrences', [])
-                    if tortured_occ:
-                        story.append(Paragraph("🔴 Tortured Phrases (highlighted in red):", 
-                                              ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
-                        for occ in tortured_occ[:10]:
-                            context = occ.get('context', '')
-                            tortured = occ.get('tortured', '')
-                            correct = occ.get('correct', '')
-                            if tortured in context:
-                                # Create formatted text with highlight
-                                before = context[:context.find(tortured)]
-                                after = context[context.find(tortured) + len(tortured):]
-                                formatted = f"{before}[{tortured}] → {correct}{after}"
-                                story.append(Paragraph(clean_text_for_pdf(formatted)[:300], example_style))
-                        story.append(Spacer(1, 0.3*cm))
-                
-                if 'phrases' in results:
-                    phrase_occ = results['phrases'].get('all_phrase_occurrences', [])
-                    if phrase_occ:
-                        story.append(Paragraph("🟡 AI Phrases (highlighted in yellow):", 
-                                              ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
-                        for occ in phrase_occ[:10]:
-                            phrase = occ.get('phrase', '')
-                            context = occ.get('context', '')
-                            if phrase in context:
-                                before = context[:context.find(phrase)]
-                                after = context[context.find(phrase) + len(phrase):]
-                                formatted = f"{before}[{phrase}]{after}"
-                                story.append(Paragraph(clean_text_for_pdf(formatted)[:300], example_style))
-                        story.append(Spacer(1, 0.3*cm))
-                
-                if 'dashes' in results:
-                    double_dashes = results['dashes'].get('double_dash_sentences', [])
-                    if double_dashes:
-                        story.append(Paragraph("🟠 Sentences with Two Dashes (— —):", 
-                                              ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
-                        for item in double_dashes[:5]:
-                            story.append(Paragraph(clean_text_for_pdf(item['sentence'])[:200], example_style))
-                        story.append(Spacer(1, 0.3*cm))
             
             # 5. CONCLUSION & RECOMMENDATIONS
             add_section_header(story, "5. CONCLUSION & RECOMMENDATIONS", level=1, anchor="section5")
@@ -5813,210 +4613,6 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
         doc.build(story)
     
     return buffer.getvalue()
-
-def generate_word_report(results_data: Dict, topic_name: str = "CT(A)I-detector Analysis") -> bytes:
-    """Generate Word document with comments and annotations"""
-    
-    try:
-        from docx import Document
-        from docx.shared import Inches, Pt, RGBColor
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
-        
-        doc = Document()
-        
-        # Set document styles
-        style = doc.styles['Normal']
-        style.font.name = 'Times New Roman'
-        style.font.size = Pt(11)
-        
-        # Title
-        title = doc.add_heading(topic_name, 0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        # Date
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        date_para.add_run(f"Generated on {datetime.now().strftime('%B %d, %Y at %H:%M')}")
-        
-        # Overall score
-        integrated = results_data.get('integrated', {})
-        final_score = integrated.get('final_score', 0)
-        
-        doc.add_heading('Overall Risk Assessment', level=1)
-        score_para = doc.add_paragraph()
-        score_run = score_para.add_run(f"AI Risk Score: {final_score:.1f}/100")
-        score_run.bold = True
-        
-        if final_score < 30:
-            score_run.font.color.rgb = RGBColor(0, 128, 0)  # Green
-        elif final_score < 50:
-            score_run.font.color.rgb = RGBColor(255, 165, 0)  # Orange
-        elif final_score < 70:
-            score_run.font.color.rgb = RGBColor(255, 140, 0)  # Dark Orange
-        else:
-            score_run.font.color.rgb = RGBColor(255, 0, 0)  # Red
-        
-        risk_level = integrated.get('risk_level', 'unknown').replace('_', ' ').title()
-        doc.add_paragraph(f"Risk Level: {risk_level}")
-        
-        # Statistics
-        text = results_data.get('text', '')
-        sentences = results_data.get('sentences', [])
-        
-        doc.add_heading('Text Statistics', level=1)
-        stats = doc.add_table(rows=4, cols=2)
-        stats.style = 'Table Grid'
-        
-        stats.cell(0, 0).text = 'Characters'
-        stats.cell(0, 1).text = str(len(text))
-        stats.cell(1, 0).text = 'Words'
-        stats.cell(1, 1).text = str(len(text.split()))
-        stats.cell(2, 0).text = 'Sentences'
-        stats.cell(2, 1).text = str(len(sentences))
-        stats.cell(3, 0).text = 'Avg. Sentence Length'
-        stats.cell(3, 1).text = f"{len(text.split()) / max(len(sentences), 1):.1f} words"
-        
-        # Tortured Phrases with comments
-        results = results_data.get('results', {})
-        
-        if 'tortured_phrases' in results:
-            tp_data = results['tortured_phrases']
-            occurrences = tp_data.get('all_occurrences', [])
-            
-            if occurrences:
-                doc.add_heading('Tortured Phrases (High Priority)', level=1)
-                
-                for occ in occurrences[:30]:
-                    p = doc.add_paragraph()
-                    p.add_run(f"Found: ").bold = True
-                    p.add_run(f"'{occ['tortured']}'")
-                    p.add_run(f" → Should be: ").bold = True
-                    p.add_run(f"'{occ['correct']}'")
-                    
-                    # Add context with comment
-                    context = occ.get('context', '')
-                    if context:
-                        p = doc.add_paragraph()
-                        p.add_run("Context: ").italic = True
-                        p.add_run(context[:300])
-                        p.paragraph_format.left_indent = Inches(0.5)
-                        
-                        # Add comment in Word
-                        comment = OxmlElement('w:comment')
-                        comment.set(qn('w:id'), '1')
-                        comment.set(qn('w:author'), 'CT(A)I-detector')
-                        comment.set(qn('w:date'), datetime.now().isoformat())
-                        
-                        comment_text = OxmlElement('w:r')
-                        comment_text.text = f"Suspicious phrase: '{occ['tortured']}' should be '{occ['correct']}'"
-                        comment.append(comment_text)
-                        
-                        # Add to document (simplified - full implementation would need proper comment handling)
-                    
-                    doc.add_paragraph()  # Spacer
-        
-        # AI Phrases with comments
-        if 'phrases' in results:
-            phrase_data = results['phrases']
-            occurrences = phrase_data.get('all_phrase_occurrences', [])
-            
-            if occurrences:
-                doc.add_heading('AI-Generated Phrases', level=1)
-                
-                for occ in occurrences[:30]:
-                    p = doc.add_paragraph()
-                    p.add_run(f"AI Phrase: ").bold = True
-                    p.add_run(f"'{occ['phrase']}'")
-                    
-                    context = occ.get('context', '')
-                    if context:
-                        p = doc.add_paragraph()
-                        p.add_run("Context: ").italic = True
-                        p.add_run(context[:300])
-                        p.paragraph_format.left_indent = Inches(0.5)
-                    
-                    doc.add_paragraph()  # Spacer
-        
-        # Sentences with double dashes
-        if 'dashes' in results:
-            dash_data = results['dashes']
-            double_dashes = dash_data.get('double_dash_sentences', [])
-            
-            if double_dashes:
-                doc.add_heading('Sentences with Two Dashes (— —)', level=1)
-                
-                for item in double_dashes[:20]:
-                    p = doc.add_paragraph()
-                    p.add_run(item['sentence'])
-                    p.paragraph_format.left_indent = Inches(0.5)
-                    
-                    # Add comment
-                    comment_para = doc.add_paragraph()
-                    comment_para.add_run("COMMENT: ").bold = True
-                    comment_para.add_run("This sentence contains two em-dashes — a pattern often seen in AI-generated text.")
-                    comment_para.paragraph_format.left_indent = Inches(0.75)
-                    comment_para.paragraph_format.italic = True
-                    
-                    doc.add_paragraph()  # Spacer
-        
-        # Enumerations
-        if 'enumeration' in results:
-            enum_data = results['enumeration']
-            enumerations = enum_data.get('all_enumerations', [])
-            
-            if enumerations:
-                doc.add_heading('Strict Enumerations (X, Y, and Z pattern)', level=1)
-                
-                for enum in enumerations[:20]:
-                    p = doc.add_paragraph()
-                    p.add_run(enum)
-                    p.paragraph_format.left_indent = Inches(0.5)
-                    
-                    comment_para = doc.add_paragraph()
-                    comment_para.add_run("COMMENT: ").bold = True
-                    comment_para.add_run("Strict three-item enumeration pattern (X, Y, and Z) — characteristic of AI-generated text.")
-                    comment_para.paragraph_format.left_indent = Inches(0.75)
-                    comment_para.paragraph_format.italic = True
-                    
-                    doc.add_paragraph()  # Spacer
-        
-        # Module scores table
-        doc.add_heading('Module Analysis Summary', level=1)
-        
-        module_scores = integrated.get('module_scores', [])
-        if module_scores:
-            table = doc.add_table(rows=len(module_scores) + 1, cols=3)
-            table.style = 'Table Grid'
-            
-            # Header
-            header_cells = table.rows[0].cells
-            header_cells[0].text = 'Module'
-            header_cells[1].text = 'Raw Score'
-            header_cells[2].text = 'Contribution'
-            
-            for i, ms in enumerate(module_scores[:20]):
-                cells = table.rows[i + 1].cells
-                cells[0].text = ms.get('module', 'unknown').replace('_', ' ').title()
-                cells[1].text = f"{ms.get('raw_score', 0)}/6"
-                cells[2].text = f"{ms.get('contribution', 0):.1f}%"
-        
-        # Footer
-        doc.add_page_break()
-        footer = doc.add_paragraph()
-        footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        footer_run = footer.add_run("Generated by CT(A)I-detector - Advanced AI Text Analysis Tool")
-        footer_run.font.size = Pt(8)
-        
-        # Save to bytes
-        import io
-        buffer = io.BytesIO()
-        doc.save(buffer)
-        return buffer.getvalue()
-        
-    except ImportError:
-        raise ImportError("python-docx is required for Word export. Install with: pip install python-docx")
 
 # ============================================================================
 # Main application
@@ -6158,34 +4754,20 @@ def main():
                 
                 # Run all analyzers with progress updates
                 analyzers = [
-                    ('unicode', UnicodeArtifactDetector(), 10),
-                    ('dashes', DashAnalyzer(), 13),
-                    ('phrases', AIPhraseDetector(), 16),
-                    ('tortured_phrases', TorturedPhraseDetector(), 19),
-                    ('burstiness', BurstinessAnalyzer(), 22),
-                    ('grammar', GrammarAnalyzer(), 25),
-                    ('hedging', HedgingAnalyzer(), 28),
-                    ('parenthesis', ParenthesisAnalyzer(), 31),
-                    ('punctuation', PunctuationAnalyzer(), 34),
-                    ('apostrophe', ApostropheAnalyzer(), 37),
-                    ('enumeration', EnumerationAnalyzer(), 40),
-                    ('paragraph', ParagraphAnalyzer(), 43),
-                    ('repetitiveness', RepetitivenessAnalyzer(), 46),
-                    ('lexical_diversity', LexicalDiversityAnalyzer(), 49),
-                    ('pos_ngrams', POSNgramAnalyzer(), 52),  # NEW
-                    ('subordinate_clauses', SubordinateClauseAnalyzer(), 55),  # NEW
-                    ('style_drift', StyleDriftAnalyzer(), 58),  # NEW
-                    ('discipline', DisciplineAnalyzer(), 61),  # NEW
-                ]
-                
-                # Для глубокого анализа:
-                deep_analyzers = [
-                    ('log_prob', LogProbAnalyzer(), 70),
-                    ('perplexity', PerplexityAnalyzer(), 75),
-                    ('semantic', SemanticAnalyzer(), 80),
-                    ('ml_classifier', MLClassifier(), 85),
-                    ('languagetool', LanguageToolIntegration(), 90),  # NEW
-                    ('external_ai', ExternalAIDetectorIntegration(), 95),  # NEW
+                    ('unicode', UnicodeArtifactDetector(), 14),
+                    ('dashes', DashAnalyzer(), 18),
+                    ('phrases', AIPhraseDetector(), 22),
+                    ('tortured_phrases', TorturedPhraseDetector(), 26),
+                    ('burstiness', BurstinessAnalyzer(), 30),
+                    ('grammar', GrammarAnalyzer(), 35),
+                    ('hedging', HedgingAnalyzer(), 40),
+                    ('parenthesis', ParenthesisAnalyzer(), 45),
+                    ('punctuation', PunctuationAnalyzer(), 50),
+                    ('apostrophe', ApostropheAnalyzer(), 55),
+                    ('enumeration', EnumerationAnalyzer(), 60),
+                    ('paragraph', ParagraphAnalyzer(), 65),
+                    ('repetitiveness', RepetitivenessAnalyzer(), 70),
+                    ('lexical_diversity', LexicalDiversityAnalyzer(), 75)
                 ]
                 
                 # Show modules being analyzed
@@ -6205,8 +4787,7 @@ def main():
                     module_container.markdown(module_html, unsafe_allow_html=True)
                     
                     # Run analyzer
-                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph', 'repetitiveness', 
-                                'pos_ngrams', 'subordinate_clauses', 'style_drift', 'discipline']:
+                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph', 'repetitiveness']:
                         results[name] = analyzer.analyze(text, sentences)
                     else:
                         results[name] = analyzer.analyze(text)
@@ -6228,8 +4809,6 @@ def main():
                         status_text.text(f"Deep analysis: {name.replace('_', ' ').title()}...")
                         if name == 'semantic':
                             results[name] = analyzer.analyze(sentences)
-                        elif name in ['languagetool', 'external_ai']:
-                            results[name] = analyzer.analyze(text, sentences)
                         else:
                             results[name] = analyzer.analyze(text)
                         progress_bar.progress(progress)
@@ -6649,15 +5228,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
 
 
