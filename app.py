@@ -1124,6 +1124,9 @@ class AIPhraseDetector:
             'gerund_of_count': 0,
             'gerund_a_count': 0,
             'gerund_an_count': 0,
+            # NEW: AI phrase occurrences storage
+            'all_phrase_occurrences': [],
+            'top_phrases': [],
             'statistics': {
                 'sentence_length': {},
                 'paragraph_length': {},
@@ -1147,6 +1150,37 @@ class AIPhraseDetector:
         
         # Split into paragraphs
         paragraphs = self.split_paragraphs(text)
+        
+        # ===== AI PHRASE DETECTION (NEW) =====
+        text_lower = text.lower()
+        phrase_counts = Counter()
+        phrase_contexts = []
+        
+        for phrase in self.ai_phrases:
+            # Use word boundary for multi-word phrases
+            pattern = r'\b' + re.escape(phrase) + r'\b'
+            matches = list(re.finditer(pattern, text_lower))
+            
+            if matches:
+                phrase_counts[phrase] = len(matches)
+                # Store context for each match
+                for match in matches[:10]:  # Limit to 10 per phrase
+                    start_pos = match.start()
+                    # Get surrounding context (100 chars before and after)
+                    context_start = max(0, start_pos - 100)
+                    context_end = min(len(text), start_pos + len(phrase) + 100)
+                    context = text[context_start:context_end].strip()
+                    
+                    phrase_contexts.append({
+                        'phrase': phrase,
+                        'context': context,
+                        'position': start_pos
+                    })
+        
+        # Add to results
+        results['all_phrase_occurrences'] = phrase_contexts
+        results['top_phrases'] = phrase_counts.most_common(20)
+        results['total_occurrences'] = sum(phrase_counts.values())
         
         # ===== IMPROVED GERUND DETECTION (pre-sentence analysis) =====
         gerund_pattern = r'\b([a-zA-Z]+ing)\b'
@@ -6158,7 +6192,8 @@ def main():
                         phrase_count = results['phrases'].get('total_occurrences', 0)
                     
                     with st.expander(f"AI Phrases ({phrase_count} occurrences)"):
-                        for occ in results['phrases']['all_phrase_occurrences'][:50]:
+                        if 'all_phrase_occurrences' in results['phrases']:
+                            for occ in results['phrases']['all_phrase_occurrences'][:50]:
                             st.markdown(f"**{occ['phrase']}** → {occ['context'][:150]}")
             
             with tabs[2]:
