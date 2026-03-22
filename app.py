@@ -1065,23 +1065,48 @@ class AIPhraseDetector:
         self.transition_threshold = 12
     
     def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Analyze text for AI phrases and clichés"""
+        """
+        Comprehensive text statistics analyzer with improved detection.
+        """
         results = {
-            'ai_phrase_count': 0,
-            'ai_phrases_found': [],
-            'all_phrase_occurrences': [],  # Все найденные вхождения с контекстом
-            'top_phrases': [],
-            'metadiscourse_count': 0,
-            'metadiscourse_markers': [],
-            'transition_score': 0,
-            'risk_level': 'none',
-            'risk_score': 0,
-            'confidence': 0,
+            'sentence_lengths': [],
+            'paragraph_lengths': [],
+            'commas_per_sentence': [],
+            'commas_per_paragraph': [],
+            'apostrophes_per_sentence': [],
+            'apostrophes_per_paragraph': [],
+            'ly_adverbs_per_sentence': [],
+            'ly_adverbs_per_paragraph': [],
+            'gerund_the_per_sentence': [],
+            'gerund_the_per_paragraph': [],
+            'gerund_of_per_sentence': [],
+            'gerund_of_per_paragraph': [],
+            'indefinite_articles_per_sentence': [],
+            'indefinite_articles_per_paragraph': [],
+            'figure_mentions': [],
+            'table_mentions': [],
+            'supplementary_mentions': [],
+            # NEW: Gerund context storage
+            'gerund_contexts': [],
+            'gerund_the_count': 0,
+            'gerund_of_count': 0,
+            'gerund_a_count': 0,
+            'gerund_an_count': 0,
             'statistics': {
-                'mean_phrases_per_sentence': 0,
-                'median_phrases_per_sentence': 0,
-                'max_phrases_in_sentence': 0,
-                'distribution': []
+                'sentence_length': {},
+                'paragraph_length': {},
+                'commas_per_sentence': {},
+                'commas_per_paragraph': {},
+                'apostrophes_per_sentence': {},
+                'apostrophes_per_paragraph': {},
+                'ly_adverbs_per_sentence': {},
+                'ly_adverbs_per_paragraph': {},
+                'gerund_the_per_sentence': {},
+                'gerund_the_per_paragraph': {},
+                'gerund_of_per_sentence': {},
+                'gerund_of_per_paragraph': {},
+                'indefinite_articles_per_sentence': {},
+                'indefinite_articles_per_paragraph': {}
             }
         }
         
