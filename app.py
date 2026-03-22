@@ -1063,6 +1063,38 @@ class AIPhraseDetector:
         ]
         
         self.transition_threshold = 12
+        
+        # Patterns for figures and tables (ADDED)
+        self.figure_patterns = [
+            r'Figure\s+\d+',
+            r'Figures\s+\d+\s+and\s+\d+',
+            r'Figures\s+\d+[-–]\d+',
+            r'Figure\s+\d+[A-Z]?',
+            r'Figs\.?\s+\d+'
+        ]
+        
+        self.table_patterns = [
+            r'Table\s+\d+',
+            r'Tables\s+\d+\s+and\s+\d+',
+            r'Tables\s+\d+[-–]\d+',
+            r'Table\s+\d+[A-Z]?',
+            r'Tables?\s+\d+'
+        ]
+        
+        self.supplementary_patterns = [
+            r'supplementary materials?',
+            r'supplementary information',
+            r'electronic supplementary materials?',
+            r'electronic supplementary information',
+            r'Figure\s+S\d+',
+            r'Figure\s+\d+S',
+            r'Table\s+S\d+',
+            r'Table\s+\d+S',
+            r'Figures?\s+S\d+[-–]S\d+',
+            r'Tables?\s+S\d+[-–]S\d+',
+            r'Figures?\s+\d+S\s+and\s+\d+S',
+            r'Tables?\s+\d+S\s+and\s+\d+S'
+        ]
     
     def analyze(self, text: str, sentences: List[str]) -> Dict:
         """
@@ -1113,7 +1145,7 @@ class AIPhraseDetector:
         if not text or not sentences:
             return results
         
-        # Split into paragraphs (improved)
+        # Split into paragraphs
         paragraphs = self.split_paragraphs(text)
         
         # ===== IMPROVED GERUND DETECTION (pre-sentence analysis) =====
