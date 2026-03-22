@@ -1,7 +1,3 @@
-# ══════════════════════════════════════════════════════════════════════════════
-# 1. ИМПОРТЫ И ЗАВИСИМОСТИ
-# ══════════════════════════════════════════════════════════════════════════════
-
 import streamlit as st
 import re
 import numpy as np
@@ -9,7 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from collections import Counter
-from typing import List, Dict, Tuple, Optional, Any, Union
+from typing import List, Dict, Tuple, Optional, Any
 import hashlib
 import tempfile
 import os
@@ -51,6 +47,40 @@ if not REPORTLAB_AVAILABLE:
     st.sidebar.warning(
         "⚠️ PDF export requires reportlab. Install with: pip install reportlab"
     )
+
+# Force CSS injection
+st.markdown("""
+<style>
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    .metric-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .metric-title {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #333;
+    }
+    .metric-unit {
+        font-size: 0.9rem;
+        color: #999;
+        margin-left: 0.25rem;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Отключаем все предупреждения spaCy и pydantic до импорта
 warnings.filterwarnings('ignore', category=UserWarning)
@@ -155,10 +185,6 @@ except Exception:
 # Подавляем все оставшиеся предупреждения после импорта
 warnings.filterwarnings('ignore')
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 2. КОНФИГУРАЦИЯ И КОНСТАНТЫ
-# ══════════════════════════════════════════════════════════════════════════════
-
 # Page configuration
 st.set_page_config(
     page_title="CT(A)I-detector",
@@ -167,11 +193,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ─── CSS СТИЛИ (разбиты на логические блоки) ───────────────────────────────────
-
-CSS_STYLES = {
-    # Глобальные стили и шрифты
-    "global": """
+# Modern lab-style design
+st.markdown("""
+<style>
     /* Modern lab design - clean, scientific, professional */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
@@ -188,10 +212,7 @@ CSS_STYLES = {
         background: transparent;
         box-shadow: none;
     }
-    """,
     
-    # Стили для шагов и контейнеров
-    "steps": """
     /* Step container */
     .step-container {
         background: white;
@@ -269,10 +290,7 @@ CSS_STYLES = {
         color: #667eea;
         font-weight: 600;
     }
-    """,
     
-    # Стили для области загрузки
-    "upload": """
     /* Upload area */
     .upload-area {
         background: linear-gradient(135deg, #f8faff 0%, #f0f3fd 100%);
@@ -295,10 +313,7 @@ CSS_STYLES = {
         color: #667eea;
         margin-bottom: 1rem;
     }
-    """,
     
-    # Стили для анимации загрузки
-    "loader": """
     /* Loading animation */
     .lab-loader {
         text-align: center;
@@ -348,10 +363,7 @@ CSS_STYLES = {
         border-color: #10b981;
         color: white;
     }
-    """,
     
-    # Стили для карточек результатов
-    "cards": """
     /* Results dashboard */
     .score-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -398,10 +410,7 @@ CSS_STYLES = {
         background: #e8f5e9;
         color: #2e7d32;
     }
-    """,
     
-    # Стили для спектра модулей
-    "spectrum": """
     /* Module spectrum */
     .spectrum-container {
         background: white;
@@ -448,10 +457,7 @@ CSS_STYLES = {
         background: #667eea;
         transition: width 0.3s ease;
     }
-    """,
     
-    # Стили для метрик
-    "metrics": """
     /* Metric cards */
     .metric-grid {
         display: grid;
@@ -501,10 +507,7 @@ CSS_STYLES = {
     
     .trend-up { color: #10b981; }
     .trend-down { color: #ef4444; }
-    """,
     
-    # Стили для примеров
-    "examples": """
     /* Example cards */
     .example-card {
         background: #f8f9fa;
@@ -519,10 +522,7 @@ CSS_STYLES = {
         font-weight: 600;
         color: #667eea;
     }
-    """,
     
-    # Стили для табов
-    "tabs": """
     /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.5rem;
@@ -542,10 +542,7 @@ CSS_STYLES = {
         background: #667eea !important;
         color: white !important;
     }
-    """,
     
-    # Стили для expander
-    "expander": """
     /* Expander styling */
     .streamlit-expanderHeader {
         background: white;
@@ -553,18 +550,12 @@ CSS_STYLES = {
         border: 1px solid #eaeaea;
         font-weight: 500;
     }
-    """,
     
-    # Скрытие элементов Streamlit
-    "hide": """
     /* Hide default streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
-    """,
     
-    # Стили для скроллбара
-    "scrollbar": """
     /* Custom scrollbar */
     ::-webkit-scrollbar {
         width: 8px;
@@ -584,469 +575,12 @@ CSS_STYLES = {
     ::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
     }
-    """
-}
+</style>
+""", unsafe_allow_html=True)
 
-def inject_css() -> None:
-    """Инъекция всех CSS стилей в приложение Streamlit"""
-    full_css = "\n".join(CSS_STYLES.values())
-    st.markdown(f"<style>{full_css}</style>", unsafe_allow_html=True)
-
-# Вызываем инъекцию CSS
-inject_css()
-
-# ─── КОНСТАНТЫ ДАННЫХ ДЛЯ АНАЛИЗАТОРОВ ─────────────────────────────────────────
-
-# AI фразы (обновленные 2025-2026)
-AI_CLICHES_2025_2026: List[str] = [
-    # "Fashionable" words 2024-2025
-    'delve into', 'testament to', 'pivotal role', 'sheds light',
-    'in the tapestry', 'in the realm', 'underscores', 'harnesses',
-    'ever-evolving landscape', 'nuanced understanding', 'robust framework',
-    'holistic approach', 'paradigm shift', 'cutting-edge',
-    
-    # New markers 2025-2026
-    'crucial', 'pivotal', 'paramount', 'underscores', 'sheds light',
-    'highlights the importance', 'testament to', 'integral', 'realm',
-    'landscape', 'ever-evolving', 'tapestry', 'harness', 'delve',
-    'delves', 'delving', 'intricate', 'meticulously', 'nuanced',
-    'robust', 'unveiling', 'findings', 'revealed', 'demonstrated',
-    'underscore', 'elucidate', 'illuminate', 'data-driven',
-    'paves the way', 'leverage', 'leverages', 'leveraging',
-    
-    # Additional AI phrases
-    'pathway', 'pathways',
-    'signaling', 'signals',
-    'Collectively',
-    'manifest',
-    'paradigm',
-    
-    # Stable connectives
-    'it is worth noting', 'it is important to note',
-    'it should be noted', 'as we delve deeper',
-    'in the context of', 'with respect to', 'in terms of',
-    'it is crucial to', 'it is paramount to',
-    
-    # Redundant transitions
-    'moreover', 'furthermore', 'in addition', 'consequently',
-    'therefore', 'thus', 'hence', 'nonetheless', 'nevertheless',
-    'accordingly', 'as a result', 'for this reason',
-    
-    # Certainty amplifiers
-    'significantly', 'substantially', 'dramatically',
-    'remarkably', 'notably', 'strikingly', 'profoundly'
-]
-
-# Методискурсивные маркеры
-METADISCOURSE_MARKERS: List[str] = [
-    'however', 'nevertheless', 'nonetheless', 'yet',
-    'although', 'even though', 'despite', 'in spite of',
-    'conversely', 'in contrast', 'on the contrary',
-    'on the one hand', 'on the other hand'
-]
-
-# Переходные конструкции
-TRANSITION_CONSTRUCTIONS: List[str] = [
-    'moreover', 'furthermore', 'in addition', 
-    'consequently', 'therefore', 'thus', 'hence'
-]
-
-# ─── TORTURED PHRASES (искаженная академическая терминология) ───────────────────
-
-TORTURED_PHRASES_DICT: Dict[str, List[str]] = {
-    # Chemistry
-    'amino acid': ['amino corrosive'],
-    'ascorbic acid': ['ascorbic corrosive'],
-    'hydrochloric acid': ['hydrochloric corrosive'],
-    'nitric acid': ['nitric corrosive'],
-    'sulfuric acid': ['sulfuric corrosive'],
-    'acetic acid': ['acetic corrosive'],
-    'citric acid': ['citric corrosive'],
-    'phosphoric acid': ['phosphoric corrosive'],
-    'formic acid': ['formic corrosive'],
-    'lactic acid': ['lactic corrosive'],
-    'nucleic acid': ['nucleic corrosive'],
-    'aqueous solution': ['watery arrangement', 'watery solution'],
-    'ph neutral': ['impartial ph', 'neutral ph', 'ph impartial'],
-    
-    # Physics/Materials
-    'surface area': ['surface region', 'surface territory'],
-    'thermal conductivity': ['warm conductivity', 'full conductivity', 'common conductivity', 'general conductivity'],
-    'heat transfer': ['warmth move', 'heat move'],
-    'heat exchanger': ['warmth exchanger'],
-    'thermal conductivity': ['warm conductivity'],
-    'turbulent flow': ['turbulant flow', 'turbulent stream'],
-    'boundary layer': ['limit layer'],
-    'computational fluid dynamics': ['computational liquid elements'],
-    'energy consumption': ['vitality utilization', 'energy utilization'],
-    'energy efficiency': ['vitality effective', 'energy effective'],
-    'energy saving': ['vitality sparing', 'energy sparing'],
-    'residual energy': ['remaining vitality', 'leftover vitality'],
-    'magnetic resonance': ['attractive reverberation'],
-    
-    # Medical/Imaging
-    'computed tomography': ['processed tomography', 'figured tomography', 'ct'],
-    'magnetic resonance imaging': ['attractive reverberation imaging', 'mri'],
-    
-    # Environmental
-    'greenhouse gas': ['ozone harming substance', 'ozone depleting substance'],
-    'greenhouse gas emissions': ['ozone harming substance discharge', 'ozone depleting substance emissions'],
-    'global warming': ['an earth-wide temperature boost', 'earth wide temperature boost'],
-    'solar energy': ['sun oriented energy', 'sunlight-based energy'],
-    'alternative energy': ['elective energy'],
-    'environmental degradation': ['ecological corruption', 'natural debasement'],
-    'heavy metals': ['substantial metals'],
-    
-    # Nanotechnology
-    'polymeric nanofiber': ['polymeric nanofiber'],
-    'quantum dots': ['quantum dabs'],
-    'drug delivery': ['medication conveyance'],
-    'negatively charged': ['contrarily charged', 'negatively charged'],
-    'transition metal': ['progress metal'],
-    
-    # AI/CS
-    'artificial intelligence': ['counterfeit consciousness', 'artificial consciousness'],
-    'deep neural network': ['profound neural organization', 'deep neural organization'],
-    'workflow engine': ['work process motor'],
-    'global parameters': ['worldwide parameters'],
-    
-    # Common tortured phrases
-    'certification': ['sertification'],
-    'methodology': ['methodologie', 'methodolgy'],
-    'analysis': ['analysys', 'analisys'],
-    'synthesis': ['synthethis', 'syntesis'],
-    'characterization': ['characterisation', 'characterisation'],
-    'significant': ['significent', 'signifcant'],
-    'important': ['importent', 'importnant'],
-    'demonstrate': ['demonstate', 'demostrate'],
-}
-
-# ─── REFERENCE MARKERS (для обрезки текста перед списком литературы) ────────────
-
-REFERENCE_CUTOFF_PATTERNS: List[str] = [
-    r'\nreferences?\s*\n',
-    r'\nbibliography\s*\n',
-    r'\nliterature cited\s*\n',
-    r'\nworks cited\s*\n',
-    r'\ncited literature\s*\n',
-    r'\nreference list\s*\n',
-    r'\nлитература\s*\n',
-    r'\nсписок литературы\s*\n',
-    r'\nбиблиография\s*\n',
-    r'\nreferences and notes\s*\n',
-    r'\nreferences & notes\s*\n'
-]
-
-# ─── ГРАММАТИЧЕСКИЕ КОНСТАНТЫ ──────────────────────────────────────────────────
-
-NOMINALIZATION_SUFFIXES: List[str] = ['tion', 'ment', 'ance', 'ence', 'ing', 'ity', 'ism', 'sis', 'ure', 'age']
-
-MODAL_VERBS: List[str] = ['may', 'might', 'could', 'would', 'should', 'can']
-
-EPISTEMIC_MARKERS: List[str] = [
-    'seem', 'appear', 'suggest', 'indicate', 'likely', 'unlikely',
-    'possibly', 'probably', 'perhaps', 'maybe', 'potentially',
-    'presumably', 'arguably', 'tentatively'
-]
-
-CERTAINTY_BOOSTERS: List[str] = [
-    'crucial', 'pivotal', 'paramount', 'essential', 'vital',
-    'undoubtedly', 'certainly', 'definitely', 'clearly', 'obviously',
-    'demonstrates', 'proves', 'confirms', 'establishes'
-]
-
-# ─── HEDGING КОНСТАНТЫ ─────────────────────────────────────────────────────────
-
-HEDGING_WORDS: List[str] = [
-    'may', 'might', 'could', 'would', 'should',
-    'possibly', 'probably', 'perhaps', 'maybe',
-    'likely', 'unlikely', 'potentially',
-    'appears', 'seems', 'suggests', 'indicates',
-    'generally', 'typically', 'usually', 'often',
-    'to some extent', 'in some cases', 'relatively',
-    'somewhat', 'partially', 'tentatively', 'arguably'
-]
-
-PERSONAL_PRONOUNS: List[str] = ['we', 'our', 'us', 'i', 'my', 'mine']
-
-CERTAINTY_PHRASES: List[str] = [
-    'clearly', 'obviously', 'undoubtedly', 'certainly',
-    'definitely', 'absolutely', 'without doubt',
-    'it is clear that', 'it is obvious that', 'there is no doubt'
-]
-
-# ─── ПУНКТУАЦИОННЫЕ КОНСТАНТЫ ─────────────────────────────────────────────────
-
-PUNCTUATION_MARKS: Dict[str, str] = {
-    'exclamation': '!',
-    'question': '?',
-    'semicolon': ';'
-}
-
-# ─── ПАТТЕРНЫ ДЛЯ АНАЛИЗА ─────────────────────────────────────────────────────
-
-LY_ADVERB_PATTERN: str = r'\b\w+ly\b'
-GERUND_THE_PATTERN: str = r'\b\w+ing\s+the\b'
-GERUND_OF_PATTERN: str = r'\b\w+ing\s+of\b'
-INDEFINITE_ARTICLE_PATTERN: str = r'\b(a|an|A|An)\b'
-
-# ─── ПАТТЕРНЫ ДЛЯ FIGURES, TABLES, SUPPLEMENTARY ───────────────────────────────
-
-FIGURE_PATTERNS: List[str] = [
-    r'Figure\s+\d+',
-    r'Figures\s+\d+\s+and\s+\d+',
-    r'Figures\s+\d+[-–]\d+',
-    r'Figure\s+\d+[A-Z]?',
-    r'Figs\.?\s+\d+'
-]
-
-TABLE_PATTERNS: List[str] = [
-    r'Table\s+\d+',
-    r'Tables\s+\d+\s+and\s+\d+',
-    r'Tables\s+\d+[-–]\d+',
-    r'Table\s+\d+[A-Z]?',
-    r'Tables?\s+\d+'
-]
-
-SUPPLEMENTARY_PATTERNS: List[str] = [
-    r'supplementary materials?',
-    r'supplementary information',
-    r'electronic supplementary materials?',
-    r'electronic supplementary information',
-    r'Figure\s+S\d+',
-    r'Figure\s+\d+S',
-    r'Table\s+S\d+',
-    r'Table\s+\d+S',
-    r'Figures?\s+S\d+[-–]S\d+',
-    r'Tables?\s+S\d+[-–]S\d+',
-    r'Figures?\s+\d+S\s+and\s+\d+S',
-    r'Tables?\s+\d+S\s+and\s+\d+S'
-]
-
-# ─── ВЕСА МОДУЛЕЙ ДЛЯ ИНТЕГРАЛЬНОЙ ОЦЕНКИ ─────────────────────────────────────
-
-MODULE_WEIGHTS: Dict[str, float] = {
-    'unicode': 0.25,
-    'dashes': 0.10,
-    'phrases': 0.06,
-    'tortured_phrases': 0.10,
-    'burstiness': 0.04,
-    'grammar': 0.05,
-    'hedging': 0.06,
-    'paragraph': 0.03,
-    'perplexity': 0.02,
-    'semantic': 0.02,
-    'parenthesis': 0.03,
-    'punctuation': 0.03,
-    'apostrophe': 0.07,
-    'enumeration': 0.06,
-    'repetitiveness': 0.03,
-    'lexical_diversity': 0.02,
-    'log_prob': 0.01,
-    'ml_classifier': 0.02
-}
-
-# ─── ПОРОГИ ДЛЯ ОЦЕНКИ РИСКА ──────────────────────────────────────────────────
-
-RISK_THRESHOLDS: List[Tuple[float, str, float]] = [
-    (5.0, "critical", 1.0),
-    (4.0, "high", 0.95),
-    (3.0, "medium", 0.85),
-    (2.0, "low", 0.7),
-    (1.0, "very_low", 0.6),
-    (0.0, "none", 0.5),
-]
-
-# ─── СЛОВАРЬ АНАЛИЗАТОРОВ (РЕЕСТР) ───────────────────────────────────────────
-
-# Импортируем классы анализаторов (будут определены позже)
-# Для избежания циклических импортов используем строковые ссылки в словаре
-# Фактическое создание экземпляров будет в функции run_all_analyzers
-
-ANALYZERS: Dict[str, Dict[str, Any]] = {
-    "unicode": {
-        "class_name": "UnicodeArtifactDetector",
-        "weight": 0.25,
-        "needs_sentences": False,
-        "display_name": "Unicode Artifacts",
-        "description": "Detects Unicode artifacts, homoglyphs, and non-Latin characters",
-        "risk_invert": False
-    },
-    "dashes": {
-        "class_name": "DashAnalyzer",
-        "weight": 0.10,
-        "needs_sentences": True,
-        "display_name": "Multiple Dashes",
-        "description": "Analyzes sentences with em-dashes, especially patterns with two dashes",
-        "risk_invert": False
-    },
-    "phrases": {
-        "class_name": "AIPhraseDetector",
-        "weight": 0.06,
-        "needs_sentences": True,
-        "display_name": "AI Phrases",
-        "description": "Detects characteristic AI clichés and metadiscourse markers",
-        "risk_invert": False
-    },
-    "tortured_phrases": {
-        "class_name": "TorturedPhraseDetector",
-        "weight": 0.10,
-        "needs_sentences": False,
-        "display_name": "Tortured Phrases",
-        "description": "Identifies distorted academic terminology",
-        "risk_invert": False
-    },
-    "burstiness": {
-        "class_name": "BurstinessAnalyzer",
-        "weight": 0.04,
-        "needs_sentences": True,
-        "display_name": "Burstiness",
-        "description": "Analyzes sentence length variability using Yule's I",
-        "risk_invert": False
-    },
-    "grammar": {
-        "class_name": "GrammarAnalyzer",
-        "weight": 0.05,
-        "needs_sentences": False,
-        "display_name": "Grammar Features",
-        "description": "Analyzes passive voice, nominalizations, modality",
-        "risk_invert": False
-    },
-    "hedging": {
-        "class_name": "HedgingAnalyzer",
-        "weight": 0.06,
-        "needs_sentences": False,
-        "display_name": "Hedging",
-        "description": "Measures hedging words and certainty expressions",
-        "risk_invert": False
-    },
-    "parenthesis": {
-        "class_name": "ParenthesisAnalyzer",
-        "weight": 0.03,
-        "needs_sentences": False,
-        "display_name": "Parentheses",
-        "description": "Analyzes content inside parentheses (human indicator)",
-        "risk_invert": True
-    },
-    "punctuation": {
-        "class_name": "PunctuationAnalyzer",
-        "weight": 0.03,
-        "needs_sentences": True,
-        "display_name": "Punctuation",
-        "description": "Analyzes exclamation, question marks, semicolons",
-        "risk_invert": True
-    },
-    "apostrophe": {
-        "class_name": "ApostropheAnalyzer",
-        "weight": 0.07,
-        "needs_sentences": False,
-        "display_name": "Apostrophes",
-        "description": "Detects apostrophe usage (contractions, possessives)",
-        "risk_invert": False
-    },
-    "enumeration": {
-        "class_name": "EnumerationAnalyzer",
-        "weight": 0.06,
-        "needs_sentences": True,
-        "display_name": "Enumerations",
-        "description": "Identifies three-item enumerations (X, Y, and Z)",
-        "risk_invert": False
-    },
-    "paragraph": {
-        "class_name": "ParagraphAnalyzer",
-        "weight": 0.03,
-        "needs_sentences": True,
-        "display_name": "Paragraph Structure",
-        "description": "Analyzes paragraph homogeneity and transitions",
-        "risk_invert": False
-    },
-    "repetitiveness": {
-        "class_name": "RepetitivenessAnalyzer",
-        "weight": 0.03,
-        "needs_sentences": True,
-        "display_name": "Repetitiveness",
-        "description": "Detects repeated n-grams (3-gram, 4-gram)",
-        "risk_invert": False
-    },
-    "lexical_diversity": {
-        "class_name": "LexicalDiversityAnalyzer",
-        "weight": 0.02,
-        "needs_sentences": False,
-        "display_name": "Lexical Diversity",
-        "description": "Calculates TTR, MTLD, MATTR, HD-D",
-        "risk_invert": False
-    },
-    "log_prob": {
-        "class_name": "LogProbAnalyzer",
-        "weight": 0.01,
-        "needs_sentences": False,
-        "display_name": "Log-Probability",
-        "description": "Calculates log-probabilities using transformer models",
-        "risk_invert": False
-    },
-    "perplexity": {
-        "class_name": "PerplexityAnalyzer",
-        "weight": 0.02,
-        "needs_sentences": False,
-        "display_name": "Perplexity",
-        "description": "Calculates text perplexity using GPT-2",
-        "risk_invert": False
-    },
-    "semantic": {
-        "class_name": "SemanticAnalyzer",
-        "weight": 0.02,
-        "needs_sentences": True,
-        "display_name": "Semantic Similarity",
-        "description": "Analyzes semantic similarity between sentences",
-        "risk_invert": False
-    },
-    "ml_classifier": {
-        "class_name": "MLClassifier",
-        "weight": 0.02,
-        "needs_sentences": False,
-        "display_name": "ML Classifier",
-        "description": "Uses fine-tuned BERT/RoBERTa model",
-        "risk_invert": False
-    }
-}
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 3. КЛАССЫ-АНАЛИЗАТОРЫ (детекторы)
-# ══════════════════════════════════════════════════════════════════════════════
-
-# ─── ВСПОМОГАТЕЛЬНЫЙ ХЕЛПЕР ДЛЯ ОЦЕНКИ РИСКА ──────────────────────────────────
-
-def assess_risk(score: float, thresholds: List[Tuple[float, str, float]] = None) -> Dict[str, Any]:
-    """
-    Универсальная функция для оценки уровня риска на основе числового score.
-    
-    Args:
-        score: Числовое значение риска (0-6)
-        thresholds: Список порогов [(порог, уровень, confidence), ...]
-    
-    Returns:
-        Словарь с risk_score, risk_level, confidence
-    """
-    if thresholds is None:
-        thresholds = RISK_THRESHOLDS
-    
-    # Сортируем пороги от большего к меньшему
-    for thresh, level, conf in sorted(thresholds, reverse=True):
-        if score >= thresh:
-            return {
-                "risk_score": score,
-                "risk_level": level,
-                "confidence": conf
-            }
-    
-    # Если ничего не подошло (score < 0)
-    return {
-        "risk_score": 0,
-        "risk_level": "none",
-        "confidence": 0.5
-    }
-
-# ─── КЛАСС ДЛЯ ОБРЕЗКИ ТЕКСТА ПЕРЕД СПИСКОМ ЛИТЕРАТУРЫ ────────────────────────
+# ============================================================================
+# Classes and functions for analysis
+# ============================================================================
 
 class ReferenceCutoff:
     """Cut text before References section"""
@@ -1057,8 +591,20 @@ class ReferenceCutoff:
         if not text:
             return text
         
-        # Используем константы REFERENCE_CUTOFF_PATTERNS
-        reference_markers = REFERENCE_CUTOFF_PATTERNS
+        # Reference markers
+        reference_markers = [
+            r'\nreferences?\s*\n',
+            r'\nbibliography\s*\n',
+            r'\nliterature cited\s*\n',
+            r'\nworks cited\s*\n',
+            r'\ncited literature\s*\n',
+            r'\nreference list\s*\n',
+            r'\nлитература\s*\n',
+            r'\nсписок литературы\s*\n',
+            r'\nбиблиография\s*\n',
+            r'\nreferences and notes\s*\n',
+            r'\nreferences & notes\s*\n'
+        ]
         
         # Find first marker
         text_lower = text.lower()
@@ -1078,8 +624,6 @@ class ReferenceCutoff:
             return text[:cutoff_pos].strip()
         
         return text
-
-# ─── UNICODE ARTIFACT DETECTOR ────────────────────────────────────────────────
 
 class UnicodeArtifactDetector:
     """Unicode artifact detector (level 1)"""
@@ -1283,8 +827,6 @@ class UnicodeArtifactDetector:
         
         return results
 
-# ─── DASH ANALYZER ───────────────────────────────────────────────────────────
-
 class DashAnalyzer:
     """Multiple long dash analysis (level 1) - modified to store ALL sentences with dashes"""
     
@@ -1398,15 +940,58 @@ class DashAnalyzer:
         
         return results
 
-# ─── AI PHRASE DETECTOR ──────────────────────────────────────────────────────
-
 class AIPhraseDetector:
     """Detector of characteristic AI phrases and clichés (level 1)"""
     
     def __init__(self):
-        # Используем константы из начала файла
-        self.ai_phrases = AI_CLICHES_2025_2026
-        self.metadiscourse_markers = METADISCOURSE_MARKERS
+        # Main AI phrases (updated 2025-2026)
+        self.ai_phrases = [
+            # "Fashionable" words 2024-2025
+            'delve into', 'testament to', 'pivotal role', 'sheds light',
+            'in the tapestry', 'in the realm', 'underscores', 'harnesses',
+            'ever-evolving landscape', 'nuanced understanding', 'robust framework',
+            'holistic approach', 'paradigm shift', 'cutting-edge',
+            
+            # New markers 2025-2026
+            'crucial', 'pivotal', 'paramount', 'underscores', 'sheds light',
+            'highlights the importance', 'testament to', 'integral', 'realm',
+            'landscape', 'ever-evolving', 'tapestry', 'harness', 'delve',
+            'delves', 'delving', 'intricate', 'meticulously', 'nuanced',
+            'robust', 'unveiling', 'findings', 'revealed', 'demonstrated',
+            'underscore', 'elucidate', 'illuminate', 'data-driven',
+            'paves the way', 'leverage', 'leverages', 'leveraging',
+            
+            # Additional AI phrases
+            'pathway', 'pathways',
+            'signaling', 'signals',
+            'Collectively',
+            'manifest',
+            'paradigm',
+            
+            # Stable connectives
+            'it is worth noting', 'it is important to note',
+            'it should be noted', 'as we delve deeper',
+            'in the context of', 'with respect to', 'in terms of',
+            'it is crucial to', 'it is paramount to',
+            
+            # Redundant transitions
+            'moreover', 'furthermore', 'in addition', 'consequently',
+            'therefore', 'thus', 'hence', 'nonetheless', 'nevertheless',
+            'accordingly', 'as a result', 'for this reason',
+            
+            # Certainty amplifiers
+            'significantly', 'substantially', 'dramatically',
+            'remarkably', 'notably', 'strikingly', 'profoundly'
+        ]
+        
+        # Metadiscourse markers (contrastive connectives)
+        self.metadiscourse_markers = [
+            'however', 'nevertheless', 'nonetheless', 'yet',
+            'although', 'even though', 'despite', 'in spite of',
+            'conversely', 'in contrast', 'on the contrary',
+            'on the one hand', 'on the other hand'
+        ]
+        
         self.transition_threshold = 12
     
     def analyze(self, text: str, sentences: List[str]) -> Dict:
@@ -1467,8 +1052,10 @@ class AIPhraseDetector:
                         'count': count
                     })
         
-        # Count transition constructions - используем константу
-        for trans in TRANSITION_CONSTRUCTIONS:
+        # Count transition constructions
+        transitions = ['moreover', 'furthermore', 'in addition', 
+                      'consequently', 'therefore', 'thus', 'hence']
+        for trans in transitions:
             results['transition_count'] += text_lower.count(trans)
         
         if total_words > 0:
@@ -1532,14 +1119,78 @@ class AIPhraseDetector:
         
         return results
 
-# ─── TORTURED PHRASE DETECTOR ────────────────────────────────────────────────
-
 class TorturedPhraseDetector:
     """Detector for tortured phrases - distorted academic terminology"""
     
     def __init__(self):
-        # Используем константу TORTURED_PHRASES_DICT
-        self.tortured_phrases = TORTURED_PHRASES_DICT
+        # Dictionary of correct terms -> list of tortured variations
+        self.tortured_phrases = {
+            # Chemistry
+            'amino acid': ['amino corrosive'],
+            'ascorbic acid': ['ascorbic corrosive'],
+            'hydrochloric acid': ['hydrochloric corrosive'],
+            'nitric acid': ['nitric corrosive'],
+            'sulfuric acid': ['sulfuric corrosive'],
+            'acetic acid': ['acetic corrosive'],
+            'citric acid': ['citric corrosive'],
+            'phosphoric acid': ['phosphoric corrosive'],
+            'formic acid': ['formic corrosive'],
+            'lactic acid': ['lactic corrosive'],
+            'nucleic acid': ['nucleic corrosive'],
+            'aqueous solution': ['watery arrangement', 'watery solution'],
+            'ph neutral': ['impartial ph', 'neutral ph', 'ph impartial'],
+            
+            # Physics/Materials
+            'surface area': ['surface region', 'surface territory'],
+            'thermal conductivity': ['warm conductivity', 'full conductivity', 'common conductivity', 'general conductivity'],
+            'heat transfer': ['warmth move', 'heat move'],
+            'heat exchanger': ['warmth exchanger'],
+            'thermal conductivity': ['warm conductivity'],
+            'turbulent flow': ['turbulant flow', 'turbulent stream'],
+            'boundary layer': ['limit layer'],
+            'computational fluid dynamics': ['computational liquid elements'],
+            'energy consumption': ['vitality utilization', 'energy utilization'],
+            'energy efficiency': ['vitality effective', 'energy effective'],
+            'energy saving': ['vitality sparing', 'energy sparing'],
+            'residual energy': ['remaining vitality', 'leftover vitality'],
+            'magnetic resonance': ['attractive reverberation'],
+            
+            # Medical/Imaging
+            'computed tomography': ['processed tomography', 'figured tomography', 'ct'],
+            'magnetic resonance imaging': ['attractive reverberation imaging', 'mri'],
+            
+            # Environmental
+            'greenhouse gas': ['ozone harming substance', 'ozone depleting substance'],
+            'greenhouse gas emissions': ['ozone harming substance discharge', 'ozone depleting substance emissions'],
+            'global warming': ['an earth-wide temperature boost', 'earth wide temperature boost'],
+            'solar energy': ['sun oriented energy', 'sunlight-based energy'],
+            'alternative energy': ['elective energy'],
+            'environmental degradation': ['ecological corruption', 'natural debasement'],
+            'heavy metals': ['substantial metals'],
+            
+            # Nanotechnology
+            'polymeric nanofiber': ['polymeric nanofiber'],
+            'quantum dots': ['quantum dabs'],
+            'drug delivery': ['medication conveyance'],
+            'negatively charged': ['contrarily charged', 'negatively charged'],
+            'transition metal': ['progress metal'],
+            
+            # AI/CS
+            'artificial intelligence': ['counterfeit consciousness', 'artificial consciousness'],
+            'deep neural network': ['profound neural organization', 'deep neural organization'],
+            'workflow engine': ['work process motor'],
+            'global parameters': ['worldwide parameters'],
+            
+            # Common tortured phrases
+            'certification': ['sertification'],
+            'methodology': ['methodologie', 'methodolgy'],
+            'analysis': ['analysys', 'analisys'],
+            'synthesis': ['synthethis', 'syntesis'],
+            'characterization': ['characterisation', 'characterisation'],
+            'significant': ['significent', 'signifcant'],
+            'important': ['importent', 'importnant'],
+            'demonstrate': ['demonstate', 'demostrate'],
+        }
         
         # Flatten for easier searching
         self.all_tortured = []
@@ -1653,8 +1304,6 @@ class TorturedPhraseDetector:
         
         return results
 
-# ─── BURSTINESS ANALYZER ─────────────────────────────────────────────────────
-
 class BurstinessAnalyzer:
     """Sentence length variability analysis (level 2) - updated with Yule's I"""
     
@@ -1720,6 +1369,7 @@ class BurstinessAnalyzer:
         results['statistics']['distribution'] = sent_lengths[:200]
         
         # Syntactic Irregularity Coefficient (SIC) - simple metric
+        # Ratio of max to min length with adjustment
         if results['statistics']['min_length'] > 0:
             results['sic'] = float(results['statistics']['max_length'] / results['statistics']['min_length'])
         
@@ -1757,7 +1407,6 @@ class BurstinessAnalyzer:
         
         return results
 
-# ─── REPETITIVENESS ANALYZER ─────────────────────────────────────────────────
 
 class RepetitivenessAnalyzer:
     """N-gram repetitiveness analysis (new module)"""
@@ -1866,7 +1515,6 @@ class RepetitivenessAnalyzer:
         
         return results
 
-# ─── LEXICAL DIVERSITY ANALYZER ──────────────────────────────────────────────
 
 class LexicalDiversityAnalyzer:
     """Lexical diversity analysis (MTLD, MATTR, HD-D)"""
@@ -1965,7 +1613,6 @@ class LexicalDiversityAnalyzer:
         
         return results
 
-# ─── LOG PROB ANALYZER ───────────────────────────────────────────────────────
 
 class LogProbAnalyzer:
     """Log-probability analysis through open models"""
@@ -2088,7 +1735,6 @@ class LogProbAnalyzer:
         
         return results
 
-# ─── ML CLASSIFIER ───────────────────────────────────────────────────────────
 
 class MLClassifier:
     """ML classifier based on BERT/RoBERTa (fine-tuned)"""
@@ -2168,17 +1814,29 @@ class MLClassifier:
         
         return results
 
-# ─── GRAMMAR ANALYZER ────────────────────────────────────────────────────────
 
 class GrammarAnalyzer:
     """Grammar feature analysis (without spacy, simplified version)"""
     
     def __init__(self):
-        # Используем константы
-        self.nominalization_suffixes = NOMINALIZATION_SUFFIXES
-        self.modal_verbs = MODAL_VERBS
-        self.epistemic_markers = EPISTEMIC_MARKERS
-        self.certainty_boosters = CERTAINTY_BOOSTERS
+        self.nominalization_suffixes = ['tion', 'ment', 'ance', 'ence', 'ing', 'ity', 'ism', 'sis', 'ure', 'age']
+        
+        # Modal verbs for hedging
+        self.modal_verbs = ['may', 'might', 'could', 'would', 'should', 'can']
+        
+        # Epistemic markers
+        self.epistemic_markers = [
+            'seem', 'appear', 'suggest', 'indicate', 'likely', 'unlikely',
+            'possibly', 'probably', 'perhaps', 'maybe', 'potentially',
+            'presumably', 'arguably', 'tentatively'
+        ]
+        
+        # Certainty boosters
+        self.certainty_boosters = [
+            'crucial', 'pivotal', 'paramount', 'essential', 'vital',
+            'undoubtedly', 'certainly', 'definitely', 'clearly', 'obviously',
+            'demonstrates', 'proves', 'confirms', 'establishes'
+        ]
     
     def analyze(self, text: str) -> Dict:
         """Simplified grammar analysis without spacy"""
@@ -2322,16 +1980,29 @@ class GrammarAnalyzer:
         
         return results
 
-# ─── HEDGING ANALYZER ────────────────────────────────────────────────────────
 
 class HedgingAnalyzer:
     """Hedging analysis (words of uncertainty)"""
     
     def __init__(self):
-        # Используем константы
-        self.hedging_words = HEDGING_WORDS
-        self.personal_pronouns = PERSONAL_PRONOUNS
-        self.certainty_phrases = CERTAINTY_PHRASES
+        self.hedging_words = [
+            'may', 'might', 'could', 'would', 'should',
+            'possibly', 'probably', 'perhaps', 'maybe',
+            'likely', 'unlikely', 'potentially',
+            'appears', 'seems', 'suggests', 'indicates',
+            'generally', 'typically', 'usually', 'often',
+            'to some extent', 'in some cases', 'relatively',
+            'somewhat', 'partially', 'tentatively', 'arguably'
+        ]
+        
+        self.personal_pronouns = ['we', 'our', 'us', 'i', 'my', 'mine']
+        
+        # Categorical expressions (anti-hedging)
+        self.certainty_phrases = [
+            'clearly', 'obviously', 'undoubtedly', 'certainly',
+            'definitely', 'absolutely', 'without doubt',
+            'it is clear that', 'it is obvious that', 'there is no doubt'
+        ]
         
     def analyze(self, text: str) -> Dict:
         """Analyze hedging usage"""
@@ -2451,7 +2122,6 @@ class HedgingAnalyzer:
         
         return results
 
-# ─── PARENTHESIS ANALYZER ────────────────────────────────────────────────────
 
 class ParenthesisAnalyzer:
     """Long parenthesis content analysis (new module)"""
@@ -2553,14 +2223,16 @@ class ParenthesisAnalyzer:
         
         return results
 
-# ─── PUNCTUATION ANALYZER ────────────────────────────────────────────────────
 
 class PunctuationAnalyzer:
     """Punctuation analysis ! ? ; (new module)"""
     
     def __init__(self):
-        # Используем константу
-        self.punctuation_marks = PUNCTUATION_MARKS
+        self.punctuation_marks = {
+            'exclamation': '!',
+            'question': '?',
+            'semicolon': ';'
+        }
     
     def analyze(self, text: str, sentences: List[str]) -> Dict:
         """Analyze usage of rare punctuation marks"""
@@ -2677,8 +2349,6 @@ class PunctuationAnalyzer:
         
         return results
 
-# ─── APOSTROPHE ANALYZER ─────────────────────────────────────────────────────
-
 class ApostropheAnalyzer:
     """Apostrophe 's analysis (new module)"""
     
@@ -2777,8 +2447,6 @@ class ApostropheAnalyzer:
             results['risk_level'] = 'very_low'
         
         return results
-
-# ─── ENUMERATION ANALYZER ────────────────────────────────────────────────────
 
 class EnumerationAnalyzer:
     """Strict enumeration analysis - improved version that catches all three-item enumerations"""
@@ -2920,8 +2588,6 @@ class EnumerationAnalyzer:
             after = parts[1][:50] if len(parts) > 1 and len(parts[1]) > 50 else (parts[1] if len(parts) > 1 else '')
             return f"...{before}[{enumeration}]{after}..."
         return enumeration
-
-# ─── PARAGRAPH ANALYZER ──────────────────────────────────────────────────────
 
 class ParagraphAnalyzer:
     """Paragraph-level analysis (new module)"""
@@ -3085,7 +2751,6 @@ class ParagraphAnalyzer:
         
         return results
 
-# ─── PERPLEXITY ANALYZER ─────────────────────────────────────────────────────
 
 class PerplexityAnalyzer:
     """Perplexity analysis (full version)"""
@@ -3217,7 +2882,6 @@ class PerplexityAnalyzer:
         
         return results
 
-# ─── SEMANTIC ANALYZER ───────────────────────────────────────────────────────
 
 class SemanticAnalyzer:
     """Semantic similarity analysis (full version)"""
@@ -3339,22 +3003,47 @@ class SemanticAnalyzer:
         
         return results
 
-# ─── TEXT STATISTICS ANALYZER ────────────────────────────────────────────────
-
 class TextStatisticsAnalyzer:
     """Comprehensive text statistics analyzer for detailed metrics"""
     
     def __init__(self):
-        # Patterns for detection - используем константы
-        self.ly_adverb_pattern = LY_ADVERB_PATTERN
-        self.gerund_the_pattern = GERUND_THE_PATTERN
-        self.gerund_of_pattern = GERUND_OF_PATTERN
-        self.indefinite_article_pattern = INDEFINITE_ARTICLE_PATTERN
+        # Patterns for detection
+        self.ly_adverb_pattern = r'\b\w+ly\b'
+        self.gerund_the_pattern = r'\b\w+ing\s+the\b'
+        self.gerund_of_pattern = r'\b\w+ing\s+of\b'
+        self.indefinite_article_pattern = r'\b(a|an|A|An)\b'
         
-        # Patterns for figures and tables - используем константы
-        self.figure_patterns = FIGURE_PATTERNS
-        self.table_patterns = TABLE_PATTERNS
-        self.supplementary_patterns = SUPPLEMENTARY_PATTERNS
+        # Patterns for figures and tables
+        self.figure_patterns = [
+            r'Figure\s+\d+',
+            r'Figures\s+\d+\s+and\s+\d+',
+            r'Figures\s+\d+[-–]\d+',
+            r'Figure\s+\d+[A-Z]?',
+            r'Figs\.?\s+\d+'
+        ]
+        
+        self.table_patterns = [
+            r'Table\s+\d+',
+            r'Tables\s+\d+\s+and\s+\d+',
+            r'Tables\s+\d+[-–]\d+',
+            r'Table\s+\d+[A-Z]?',
+            r'Tables?\s+\d+'
+        ]
+        
+        self.supplementary_patterns = [
+            r'supplementary materials?',
+            r'supplementary information',
+            r'electronic supplementary materials?',
+            r'electronic supplementary information',
+            r'Figure\s+S\d+',
+            r'Figure\s+\d+S',
+            r'Table\s+S\d+',
+            r'Table\s+\d+S',
+            r'Figures?\s+S\d+[-–]S\d+',
+            r'Tables?\s+S\d+[-–]S\d+',
+            r'Figures?\s+\d+S\s+and\s+\d+S',
+            r'Tables?\s+\d+S\s+and\s+\d+S'
+        ]
     
     def split_paragraphs(self, text: str) -> List[str]:
         """Split text into paragraphs"""
@@ -3538,38 +3227,211 @@ class TextStatisticsAnalyzer:
         
         return results
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-# ══════════════════════════════════════════════════════════════════════════════
 
-def clean_text_for_pdf(text: str) -> str:
-    """Очистка текста для PDF от HTML тегов и спецсимволов"""
-    if not text:
-        return ""
-    if not isinstance(text, str):
-        text = str(text)
-    # Удаляем HTML теги
-    text = re.sub(r'<[^>]+>', '', text)
-    # Заменяем специальные символы
-    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-    # Убираем множественные пробелы
-    text = re.sub(r'\s+', ' ', text)
-    return text.strip()
-
-def split_sentences_simple(text: str) -> List[str]:
-    """Simple sentence segmentation without spacy"""
-    sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-    return [s.strip() for s in sentences if len(s.strip()) > 10]
-
-def preprocess_text(text: str) -> str:
-    """Basic text preprocessing"""
-    if not text:
-        return ""
-    # Normalize spaces
-    text = re.sub(r'\s+', ' ', text)
-    # Remove extra line breaks
-    text = re.sub(r'\n\s*\n', '\n\n', text)
-    return text.strip()
+class IntegratedRiskScorer:
+    """Integrated risk assessment based on all modules"""
+    
+    def __init__(self):
+        # Module weights (updated with tortured_phrases - weight 0.10)
+        self.weights = {
+            'unicode': 0.25,
+            'dashes': 0.10,          # немного уменьшили, чтобы освободить место
+            'phrases': 0.06,
+            'tortured_phrases': 0.10,  # НОВЫЙ модуль с весом 10%
+            'burstiness': 0.04,
+            'grammar': 0.05,
+            'hedging': 0.06,
+            'paragraph': 0.03,
+            'perplexity': 0.02,
+            'semantic': 0.02,
+            'parenthesis': 0.03,
+            'punctuation': 0.03,
+            'apostrophe': 0.07,
+            'enumeration': 0.06,
+            'repetitiveness': 0.03,
+            'lexical_diversity': 0.02,
+            'log_prob': 0.01,
+            'ml_classifier': 0.02
+        }
+               
+        # Normalize weights
+        total = sum(self.weights.values())
+        if total > 0:
+            for key in self.weights:
+                self.weights[key] /= total
+    
+    def calculate(self, results: Dict) -> Dict:
+        """Calculate integrated risk with improved weighting"""
+        total_score = 0
+        total_confidence = 0
+        weighted_score = 0
+        module_scores = []
+        
+        # Проверяем, какие модули есть в результатах
+        available_modules = []
+        for module, weight in self.weights.items():
+            if module in results and results[module]:
+                available_modules.append(module)
+        
+        # Перенормализуем веса только для доступных модулей
+        if available_modules:
+            # Сумма весов доступных модулей
+            total_available_weight = sum(self.weights[m] for m in available_modules)
+            
+            for module in available_modules:
+                data = results[module]
+                if 'risk_score' in data and data['risk_score'] is not None:
+                    # Нормализуем вес относительно доступных модулей
+                    normalized_weight = self.weights[module] / total_available_weight
+                    
+                    # Нормализуем risk_score с учетом увеличенного максимума (теперь до 6)
+                    max_score = 6  # БЫЛО 3, СТАЛО 6 (учет увеличенных значений)
+                    norm_score = min(data['risk_score'] / max_score, 1.0)
+                    
+                    # Для модулей с очень высоким риском - усиливаем сигнал
+                    if data['risk_score'] >= 5:
+                        norm_score = min(norm_score * 1.2, 1.0)  # буст для очень сильных сигналов
+                    
+                    # Учитываем confidence модуля
+                    confidence = data.get('confidence', 0.5)
+                    
+                    # Для модулей, где низкий риск = человеческий, инвертируем
+                    invert_modules = ['parenthesis', 'punctuation']
+                    if module in invert_modules and 'risk_score' in data:
+                        norm_score = 1.0 - norm_score
+                    
+                    # Вклад модуля в общий score
+                    contribution = norm_score * normalized_weight * 100
+                    
+                    module_score = {
+                        'module': module,
+                        'raw_score': data['risk_score'],
+                        'norm_score': norm_score,
+                        'weight': normalized_weight,
+                        'original_weight': self.weights[module],
+                        'confidence': confidence,
+                        'contribution': contribution
+                    }
+                    
+                    module_scores.append(module_score)
+                    weighted_score += norm_score * normalized_weight
+                    total_confidence += confidence * normalized_weight
+        
+        # Финальный score 0-100 - УВЕЛИЧИВАЕМ ЧУВСТВИТЕЛЬНОСТЬ
+        final_score = weighted_score * 100
+        
+        # Усиливаем влияние высоких скоров (нелинейное усиление)
+        if weighted_score > 0.5:
+            final_score = final_score * 1.2  # буст для явных случаев
+        elif weighted_score > 0.7:
+            final_score = final_score * 1.3  # еще больше буста
+        
+        # Корректировка на уверенность
+        if total_confidence > 0:
+            final_score = final_score * (0.5 + 0.5 * total_confidence)
+        
+        # Ограничиваем максимум 100
+        final_score = min(final_score, 100)
+        
+        # Определяем уровень риска
+        risk_level = 'unknown'
+        if final_score < 15:
+            risk_level = 'very_low'
+        elif final_score < 20:
+            risk_level = 'low'
+        elif final_score < 30:
+            risk_level = 'medium-low'
+        elif final_score < 40:
+            risk_level = 'medium'
+        elif final_score < 50:
+            risk_level = 'medium-high'
+        else:
+            risk_level = 'high'
+        
+        return {
+            'final_score': final_score,
+            'risk_level': risk_level,
+            'weighted_score': weighted_score,
+            'total_confidence': total_confidence,
+            'module_scores': module_scores,
+            'available_modules': available_modules
+        }
+        
+class DocumentProcessor:
+    """Uploaded document processor"""
+    
+    @staticmethod
+    def read_docx(file) -> Optional[str]:
+        """Read .docx file"""
+        try:
+            from docx import Document
+            doc = Document(file)
+            full_text = []
+            for para in doc.paragraphs:
+                if para.text:
+                    full_text.append(para.text)
+            
+            # Read tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            if para.text:
+                                full_text.append(para.text)
+            
+            return '\n'.join(full_text)
+        except Exception as e:
+            st.error(f"Error reading DOCX: {e}")
+            return None
+    
+    @staticmethod
+    def read_doc(file) -> Optional[str]:
+        """Read .doc file (if antiword available)"""
+        try:
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.doc', mode='wb') as tmp:
+                tmp.write(file.getvalue())
+                tmp_path = tmp.name
+            
+            # Try using antiword
+            try:
+                result = subprocess.run(['antiword', tmp_path], 
+                                       capture_output=True, text=True, timeout=10)
+                os.unlink(tmp_path)
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout
+            except:
+                pass
+            
+            # If antiword fails, try text fallback
+            os.unlink(tmp_path)
+            
+            # Try reading as text file
+            file.seek(0)
+            content = file.getvalue().decode('utf-8', errors='ignore')
+            if len(content) > 100:
+                return content
+            
+            return None
+        except Exception as e:
+            return None
+    
+    @staticmethod
+    def split_sentences_simple(text: str) -> List[str]:
+        """Simple sentence segmentation without spacy"""
+        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
+        return [s.strip() for s in sentences if len(s.strip()) > 10]
+    
+    @staticmethod
+    def preprocess(text: str) -> str:
+        """Basic text preprocessing"""
+        if not text:
+            return ""
+        # Normalize spaces
+        text = re.sub(r'\s+', ' ', text)
+        # Remove extra line breaks
+        text = re.sub(r'\n\s*\n', '\n\n', text)
+        return text.strip()
 
 def format_authors(authors_list):
     """Форматирование списка авторов для PDF"""
@@ -3604,258 +3466,19 @@ def format_authors(authors_list):
     
     return result
 
-def add_horizontal_rule(story, width=None, thickness=1, color=None):
-    """Add a horizontal line separator with default color if None provided"""
-    from reportlab.platypus import Flowable
-    
-    # Устанавливаем цвет по умолчанию, если передан None
-    if color is None:
-        color = colors.HexColor('#BDC3C7')
-    
-    class HRFlowable(Flowable):
-        def __init__(self, width, thickness=1, color=colors.black):
-            Flowable.__init__(self)
-            self.width = width
-            self.thickness = thickness
-            self.color = color
-        
-        def draw(self):
-            self.canv.setStrokeColor(self.color)
-            self.canv.setLineWidth(self.thickness)
-            self.canv.line(0, 0, self.width, 0)
-        
-        def wrap(self, availWidth, availHeight):
-            if self.width is None:
-                self.width = availWidth
-            return (self.width, self.thickness)
-    
-    story.append(HRFlowable(width, thickness, color))
-    story.append(Spacer(1, 0.3*cm))
-
-def add_watermark(canvas, doc, text="CONFIDENTIAL", opacity=0.1):
-    """Add watermark to every page"""
-    canvas.saveState()
-    canvas.setFillColor(colors.grey)
-    canvas.setFillAlpha(opacity)
-    canvas.setFont('Helvetica-Bold', 60)
-    canvas.rotate(45)
-    canvas.drawString(200, 100, text)
-    canvas.restoreState()
-
-def add_section_header(story, text, level=1, anchor=None):
-    """Add section header with optional anchor for TOC"""
-    styles = getSampleStyleSheet()
-    
-    if level == 1:
-        style = ParagraphStyle(
-            'Section1',
-            parent=styles['Heading1'],
-            fontSize=14,
-            textColor=colors.HexColor('#2980B9'),
-            spaceAfter=10,
-            spaceBefore=15,
-            fontName='Helvetica-Bold'
-        )
-    elif level == 2:
-        style = ParagraphStyle(
-            'Section2',
-            parent=styles['Heading2'],
-            fontSize=12,
-            textColor=colors.HexColor('#16A085'),
-            spaceAfter=8,
-            spaceBefore=10,
-            fontName='Helvetica-Bold'
-        )
-    else:
-        style = ParagraphStyle(
-            'Section3',
-            parent=styles['Heading3'],
-            fontSize=11,
-            textColor=colors.HexColor('#34495E'),
-            spaceAfter=6,
-            spaceBefore=8,
-            fontName='Helvetica-Bold'
-        )
-    
-    if anchor:
-        story.append(Paragraph(f'<a name="{anchor}"/>{text}', style))
-    else:
-        story.append(Paragraph(text, style))
-    
-    add_horizontal_rule(story, color=colors.HexColor('#BDC3C7') if level == 1 else None)
-
-def create_table_of_contents(story, doc):
-    """Create clickable table of contents"""
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, Spacer
-    from reportlab.lib import pagesizes
-    
-    story.append(PageBreak())
-    story.append(Paragraph("TABLE OF CONTENTS", ParagraphStyle(
-        'TOCHeading',
-        parent=getSampleStyleSheet()['Heading1'],
-        fontSize=16,
-        textColor=colors.HexColor('#2C3E50'),
-        spaceAfter=20,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )))
-    
-    toc_entries = [
-        ("1. OVERALL RISK ASSESSMENT", 1),
-        ("2. MODULE CONTRIBUTIONS", 2),
-        ("3. DETAILED MODULE ANALYSIS", 3),
-        ("   3.1 Unicode Artifacts", 3),
-        ("   3.2 AI Phrases", 3),
-        ("   3.3 Tortured Phrases", 3),
-        ("   3.4 Strict Enumerations", 3),
-        ("   3.5 Apostrophe Usage", 3),
-        ("   3.6 Punctuation Analysis", 3),
-        ("   3.7 Parenthesis Analysis", 3),
-        ("   3.8 Repetitiveness Analysis", 3),
-        ("   3.9 Dash Analysis", 3),
-        ("   3.10 Lexical Diversity", 3),
-        ("4. TEXT SAMPLES", 4),
-        ("5. CONCLUSION & RECOMMENDATIONS", 5),
-    ]
-    
-    for title, page in toc_entries:
-        # Create clickable link
-        link_style = ParagraphStyle(
-            'TOCEntry',
-            parent=getSampleStyleSheet()['Normal'],
-            fontSize=11,
-            textColor=colors.HexColor('#3498DB'),
-            leftIndent=20 if title.startswith('   ') else 0,
-            fontName='Helvetica'
-        )
-        
-        # Add dots between title and page number
-        dots = '.' * (60 - len(title))
-        p = Paragraph(f'<link href="#section{page}">{title}{dots}{page}</link>', link_style)
-        story.append(p)
-        story.append(Spacer(1, 0.1*cm))
-    
-    story.append(PageBreak())
-
-def create_module_pie_chart(module_scores, width=400, height=200):
-    """Create a pie/donut chart showing module contributions"""
-    from reportlab.graphics.shapes import Drawing, String
-    from reportlab.graphics.charts.piecharts import Pie
-    
-    if not module_scores:
-        return None
-    
-    # Take top 6 modules by contribution, group others as "Others"
-    sorted_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)
-    
-    if len(sorted_modules) > 6:
-        top_modules = sorted_modules[:5]
-        other_contribution = sum(m.get('contribution', 0) for m in sorted_modules[5:])
-        if other_contribution > 0:
-            top_modules.append({
-                'module': 'others',
-                'contribution': other_contribution,
-                'raw_score': 0
-            })
-    else:
-        top_modules = sorted_modules
-    
-    # Prepare data
-    data = [m.get('contribution', 0) for m in top_modules]
-    labels = [m.get('module', 'unknown').replace('_', ' ').title() for m in top_modules]
-    
-    # Create drawing
-    drawing = Drawing(width, height)
-    
-    # Create pie chart
-    pie = Pie()
-    pie.x = 50
-    pie.y = 30
-    pie.width = 150
-    pie.height = 150
-    pie.data = data
-    pie.labels = labels
-    pie.sideLabels = True
-    pie.simpleLabels = False
-    
-    # Colors
-    colors_list = [
-        colors.HexColor('#FF6B6B'),  # red
-        colors.HexColor('#4ECDC4'),  # teal
-        colors.HexColor('#45B7D1'),  # blue
-        colors.HexColor('#96CEB4'),  # green
-        colors.HexColor('#FFE194'),  # yellow
-        colors.HexColor('#D4A5A5'),  # pink
-    ]
-    
-    for i, color in enumerate(colors_list):
-        if i < len(pie.slices):
-            pie.slices[i].fillColor = color
-    
-    drawing.add(pie)
-    
-    # Add title
-    title = String(200, 180, 'Module Contribution Distribution')
-    title.fontName = 'Helvetica-Bold'
-    title.fontSize = 10
-    title.textAnchor = 'middle'
-    drawing.add(title)
-    
-    return drawing
-
-def create_module_bar_chart(module_scores, width=450, height=200):
-    """Create a bar chart showing top modules by contribution"""
-    from reportlab.graphics.shapes import Drawing
-    from reportlab.graphics.charts.barcharts import VerticalBarChart
-    
-    if not module_scores:
-        return None
-    
-    # Take top 8 modules
-    top_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)[:8]
-    
-    # Prepare data
-    contributions = [[m.get('contribution', 0) for m in top_modules]]
-    raw_scores = [m.get('raw_score', 0) for m in top_modules]
-    categories = [m.get('module', 'unknown').replace('_', ' ')[:12] for m in top_modules]
-    
-    # Create drawing
-    drawing = Drawing(width, height)
-    
-    # Create bar chart
-    bc = VerticalBarChart()
-    bc.x = 50
-    bc.y = 40
-    bc.width = 350
-    bc.height = 140
-    bc.data = contributions
-    bc.strokeColor = colors.black
-    bc.strokeWidth = 0.5
-    bc.categoryAxis.categoryNames = categories 
-    bc.valueAxis.valueMin = 0
-    bc.valueAxis.valueMax = max(max(contributions[0]) * 1.1, 30)
-    bc.valueAxis.valueStep = 10
-    bc.categoryAxis.labels.boxAnchor = 'ne'
-    bc.categoryAxis.labels.dx = 8
-    bc.categoryAxis.labels.dy = -2
-    bc.categoryAxis.labels.angle = 45
-    bc.bars[0].fillColor = colors.HexColor('#667eea')
-    
-    drawing.add(bc)
-    
-    # Add title
-    from reportlab.graphics.shapes import String
-    title = String(225, 180, 'Top Modules by Contribution')
-    title.fontName = 'Helvetica-Bold'
-    title.fontSize = 10
-    title.textAnchor = 'middle'
-    drawing.add(title)
-    
-    return drawing
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 5. PDF-ГЕНЕРАЦИЯ (все функции reportlab здесь)
-# ══════════════════════════════════════════════════════════════════════════════
+def clean_text_for_pdf(text):
+    """Очистка текста для PDF от HTML тегов и спецсимволов"""
+    if not text:
+        return ""
+    if not isinstance(text, str):
+        text = str(text)
+    # Удаляем HTML теги
+    text = re.sub(r'<[^>]+>', '', text)
+    # Заменяем специальные символы
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Убираем множественные пробелы
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
 def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
     """Генерация PDF отчета с результатами анализа"""
@@ -4103,7 +3726,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         story.append(stats_table)
         story.append(Spacer(1, 0.5*cm))
         
-        # 1.5 ДЕТАЛЬНАЯ СТАТИСТИКА
+        # 1.5 ДЕТАЛЬНАЯ СТАТИСТИКА (NEW!)
         if text_stats:
             story.append(Paragraph("1.5 Detailed Text Statistics", section_style))
             
@@ -4594,6 +4217,259 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
     
     return buffer.getvalue()
 
+# ============================================================================
+# PDF Report Generation - Enhanced Version with Charts and TOC
+# ============================================================================
+
+def create_module_pie_chart(module_scores, width=400, height=200):
+    """Create a pie/donut chart showing module contributions"""
+    from reportlab.graphics.shapes import Drawing, String
+    from reportlab.graphics.charts.piecharts import Pie
+    
+    if not module_scores:
+        return None
+    
+    # Take top 6 modules by contribution, group others as "Others"
+    sorted_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)
+    
+    if len(sorted_modules) > 6:
+        top_modules = sorted_modules[:5]
+        other_contribution = sum(m.get('contribution', 0) for m in sorted_modules[5:])
+        if other_contribution > 0:
+            top_modules.append({
+                'module': 'others',
+                'contribution': other_contribution,
+                'raw_score': 0
+            })
+    else:
+        top_modules = sorted_modules
+    
+    # Prepare data
+    data = [m.get('contribution', 0) for m in top_modules]
+    labels = [m.get('module', 'unknown').replace('_', ' ').title() for m in top_modules]
+    
+    # Create drawing
+    drawing = Drawing(width, height)
+    
+    # Create pie chart
+    pie = Pie()
+    pie.x = 50
+    pie.y = 30
+    pie.width = 150
+    pie.height = 150
+    pie.data = data
+    pie.labels = labels
+    pie.sideLabels = True
+    pie.simpleLabels = False
+    
+    # Colors
+    colors_list = [
+        colors.HexColor('#FF6B6B'),  # red
+        colors.HexColor('#4ECDC4'),  # teal
+        colors.HexColor('#45B7D1'),  # blue
+        colors.HexColor('#96CEB4'),  # green
+        colors.HexColor('#FFE194'),  # yellow
+        colors.HexColor('#D4A5A5'),  # pink
+    ]
+    
+    for i, color in enumerate(colors_list):
+        if i < len(pie.slices):
+            pie.slices[i].fillColor = color
+    
+    drawing.add(pie)
+    
+    # Add title
+    title = String(200, 180, 'Module Contribution Distribution')
+    title.fontName = 'Helvetica-Bold'
+    title.fontSize = 10
+    title.textAnchor = 'middle'
+    drawing.add(title)
+    
+    return drawing
+
+def create_module_bar_chart(module_scores, width=450, height=200):
+    """Create a bar chart showing top modules by contribution"""
+    from reportlab.graphics.shapes import Drawing
+    from reportlab.graphics.charts.barcharts import VerticalBarChart
+    
+    if not module_scores:
+        return None
+    
+    # Take top 8 modules
+    top_modules = sorted(module_scores, key=lambda x: x.get('contribution', 0), reverse=True)[:8]
+    
+    # Prepare data
+    contributions = [[m.get('contribution', 0) for m in top_modules]]
+    raw_scores = [m.get('raw_score', 0) for m in top_modules]
+    categories = [m.get('module', 'unknown').replace('_', ' ')[:12] for m in top_modules]
+    
+    # Create drawing
+    drawing = Drawing(width, height)
+    
+    # Create bar chart
+    bc = VerticalBarChart()
+    bc.x = 50
+    bc.y = 40
+    bc.width = 350
+    bc.height = 140
+    bc.data = contributions
+    bc.strokeColor = colors.black
+    bc.strokeWidth = 0.5
+    bc.categoryAxis.categoryNames = categories 
+    bc.valueAxis.valueMin = 0
+    bc.valueAxis.valueMax = max(max(contributions[0]) * 1.1, 30)
+    bc.valueAxis.valueStep = 10
+    bc.categoryAxis.labels.boxAnchor = 'ne'
+    bc.categoryAxis.labels.dx = 8
+    bc.categoryAxis.labels.dy = -2
+    bc.categoryAxis.labels.angle = 45
+    bc.bars[0].fillColor = colors.HexColor('#667eea')
+    
+    drawing.add(bc)
+    
+    # Add title
+    from reportlab.graphics.shapes import String
+    title = String(225, 180, 'Top Modules by Contribution')
+    title.fontName = 'Helvetica-Bold'
+    title.fontSize = 10
+    title.textAnchor = 'middle'
+    drawing.add(title)
+    
+    return drawing
+
+def add_horizontal_rule(story, width=None, thickness=1, color=None):
+    """Add a horizontal line separator with default color if None provided"""
+    from reportlab.platypus import Flowable
+    
+    # Устанавливаем цвет по умолчанию, если передан None
+    if color is None:
+        color = colors.HexColor('#BDC3C7')
+    
+    class HRFlowable(Flowable):
+        def __init__(self, width, thickness=1, color=colors.black):
+            Flowable.__init__(self)
+            self.width = width
+            self.thickness = thickness
+            self.color = color
+        
+        def draw(self):
+            self.canv.setStrokeColor(self.color)
+            self.canv.setLineWidth(self.thickness)
+            self.canv.line(0, 0, self.width, 0)
+        
+        def wrap(self, availWidth, availHeight):
+            if self.width is None:
+                self.width = availWidth
+            return (self.width, self.thickness)
+    
+    story.append(HRFlowable(width, thickness, color))
+    story.append(Spacer(1, 0.3*cm))
+
+def add_watermark(canvas, doc, text="CONFIDENTIAL", opacity=0.1):
+    """Add watermark to every page"""
+    canvas.saveState()
+    canvas.setFillColor(colors.grey)
+    canvas.setFillAlpha(opacity)
+    canvas.setFont('Helvetica-Bold', 60)
+    canvas.rotate(45)
+    canvas.drawString(200, 100, text)
+    canvas.restoreState()
+
+def create_table_of_contents(story, doc):
+    """Create clickable table of contents"""
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, Spacer
+    from reportlab.lib import pagesizes
+    
+    story.append(PageBreak())
+    story.append(Paragraph("TABLE OF CONTENTS", ParagraphStyle(
+        'TOCHeading',
+        parent=getSampleStyleSheet()['Heading1'],
+        fontSize=16,
+        textColor=colors.HexColor('#2C3E50'),
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )))
+    
+    toc_entries = [
+        ("1. OVERALL RISK ASSESSMENT", 1),
+        ("2. MODULE CONTRIBUTIONS", 2),
+        ("3. DETAILED MODULE ANALYSIS", 3),
+        ("   3.1 Unicode Artifacts", 3),
+        ("   3.2 AI Phrases", 3),
+        ("   3.3 Tortured Phrases", 3),
+        ("   3.4 Strict Enumerations", 3),
+        ("   3.5 Apostrophe Usage", 3),
+        ("   3.6 Punctuation Analysis", 3),
+        ("   3.7 Parenthesis Analysis", 3),
+        ("   3.8 Repetitiveness Analysis", 3),
+        ("   3.9 Dash Analysis", 3),
+        ("   3.10 Lexical Diversity", 3),
+        ("4. TEXT SAMPLES", 4),
+        ("5. CONCLUSION & RECOMMENDATIONS", 5),
+    ]
+    
+    for title, page in toc_entries:
+        # Create clickable link
+        link_style = ParagraphStyle(
+            'TOCEntry',
+            parent=getSampleStyleSheet()['Normal'],
+            fontSize=11,
+            textColor=colors.HexColor('#3498DB'),
+            leftIndent=20 if title.startswith('   ') else 0,
+            fontName='Helvetica'
+        )
+        
+        # Add dots between title and page number
+        dots = '.' * (60 - len(title))
+        p = Paragraph(f'<link href="#section{page}">{title}{dots}{page}</link>', link_style)
+        story.append(p)
+        story.append(Spacer(1, 0.1*cm))
+    
+    story.append(PageBreak())
+
+def add_section_header(story, text, level=1, anchor=None):
+    """Add section header with optional anchor for TOC"""
+    styles = getSampleStyleSheet()
+    
+    if level == 1:
+        style = ParagraphStyle(
+            'Section1',
+            parent=styles['Heading1'],
+            fontSize=14,
+            textColor=colors.HexColor('#2980B9'),
+            spaceAfter=10,
+            spaceBefore=15,
+            fontName='Helvetica-Bold'
+        )
+    elif level == 2:
+        style = ParagraphStyle(
+            'Section2',
+            parent=styles['Heading2'],
+            fontSize=12,
+            textColor=colors.HexColor('#16A085'),
+            spaceAfter=8,
+            spaceBefore=10,
+            fontName='Helvetica-Bold'
+        )
+    else:
+        style = ParagraphStyle(
+            'Section3',
+            parent=styles['Heading3'],
+            fontSize=11,
+            textColor=colors.HexColor('#34495E'),
+            spaceAfter=6,
+            spaceBefore=8,
+            fontName='Helvetica-Bold'
+        )
+    
+    if anchor:
+        story.append(Paragraph(f'<a name="{anchor}"/>{text}', style))
+    else:
+        story.append(Paragraph(text, style))
+    
+    add_horizontal_rule(story, color=colors.HexColor('#BDC3C7') if level == 1 else None)
+
 def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analysis", report_type="full"):
     """
     Generate PDF report with charts, TOC, and watermark
@@ -4823,7 +4699,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
         story.append(stats_table)
         story.append(Spacer(1, 0.5*cm))
         
-        # 1.5 DETAILED TEXT STATISTICS
+        # 1.5 DETAILED TEXT STATISTICS (NEW!)
         if text_stats and report_type == "full":
             add_section_header(story, "Detailed Text Statistics", level=2)
             
@@ -4894,7 +4770,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             story.append(stats_table_detailed)
             story.append(Spacer(1, 0.5*cm))
-
+            
             # Figure mentions
             if text_stats.get('figure_mentions'):
                 story.append(Paragraph(f"Figure Mentions (Total: {text_stats.get('figure_count', 0)}):", 
@@ -5327,296 +5203,9 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
     
     return buffer.getvalue()
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 6. ОСНОВНАЯ ЛОГИКА АНАЛИЗА (все .analyze вызовы)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def run_all_analyzers(text: str, sentences: List[str], deep_analysis: bool = False) -> Dict[str, Any]:
-    """
-    Запускает все анализаторы из реестра ANALYZERS
-    
-    Args:
-        text: Текст для анализа
-        sentences: Список предложений
-        deep_analysis: Включить ли глубокий анализ (log_prob, perplexity, semantic, ml_classifier)
-    
-    Returns:
-        Словарь с результатами всех анализаторов
-    """
-    results = {}
-    
-    # Создаем словарь для быстрого доступа к классам
-    class_registry = {
-        "UnicodeArtifactDetector": UnicodeArtifactDetector,
-        "DashAnalyzer": DashAnalyzer,
-        "AIPhraseDetector": AIPhraseDetector,
-        "TorturedPhraseDetector": TorturedPhraseDetector,
-        "BurstinessAnalyzer": BurstinessAnalyzer,
-        "GrammarAnalyzer": GrammarAnalyzer,
-        "HedgingAnalyzer": HedgingAnalyzer,
-        "ParenthesisAnalyzer": ParenthesisAnalyzer,
-        "PunctuationAnalyzer": PunctuationAnalyzer,
-        "ApostropheAnalyzer": ApostropheAnalyzer,
-        "EnumerationAnalyzer": EnumerationAnalyzer,
-        "ParagraphAnalyzer": ParagraphAnalyzer,
-        "RepetitivenessAnalyzer": RepetitivenessAnalyzer,
-        "LexicalDiversityAnalyzer": LexicalDiversityAnalyzer,
-        "LogProbAnalyzer": LogProbAnalyzer,
-        "PerplexityAnalyzer": PerplexityAnalyzer,
-        "SemanticAnalyzer": SemanticAnalyzer,
-        "MLClassifier": MLClassifier
-    }
-    
-    # Фильтруем анализаторы: если deep_analysis=False, исключаем тяжелые
-    deep_analyzers = {"log_prob", "perplexity", "semantic", "ml_classifier"}
-    
-    for key, info in ANALYZERS.items():
-        # Пропускаем тяжелые анализаторы, если deep_analysis выключен
-        if key in deep_analyzers and not deep_analysis:
-            continue
-        
-        # Получаем класс
-        class_name = info.get("class_name")
-        if not class_name or class_name not in class_registry:
-            continue
-        
-        analyzer_class = class_registry[class_name]
-        analyzer = analyzer_class()
-        
-        # Запускаем анализатор с нужными параметрами
-        try:
-            if info.get("needs_sentences", False):
-                results[key] = analyzer.analyze(text, sentences)
-            else:
-                results[key] = analyzer.analyze(text)
-        except Exception as e:
-            # В случае ошибки записываем информацию об ошибке
-            results[key] = {
-                "error": str(e),
-                "risk_score": 0,
-                "risk_level": "error",
-                "confidence": 0
-            }
-    
-    return results
-
-def show_analysis_progress(analyzers_to_run: List[Dict[str, Any]]) -> None:
-    """
-    Отображает прогресс-бар и статус модулей во время анализа
-    
-    Args:
-        analyzers_to_run: Список анализаторов для отображения (с информацией о порядке)
-    """
-    modules = [info["display_name"] for info in analyzers_to_run]
-    progress = st.progress(0)
-    status = st.empty()
-    module_status = st.empty()
-
-    for i, info in enumerate(analyzers_to_run):
-        status.text(f"Analyzing: {info['display_name']}...")
-        
-        # обновление списка модулей с галочками
-        html = '<div class="module-status">'
-        for j, m in enumerate(modules):
-            if j < i:
-                html += f'<span class="module-pill completed">✓ {m}</span>'
-            elif j == i:
-                html += f'<span class="module-pill active">⚡ {m}</span>'
-            else:
-                html += f'<span class="module-pill">{m}</span>'
-        html += '</div>'
-        module_status.markdown(html, unsafe_allow_html=True)
-        
-        progress.progress((i + 1) / len(analyzers_to_run))
-        time.sleep(0.2)  # Небольшая задержка для визуального эффекта
-        
-    progress.progress(100)
-    status.text("Analysis complete!")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 7. STREAMLIT UI И ЛОГИКА ШАГОВ
-# ══════════════════════════════════════════════════════════════════════════════
-
-# ══════════════════════════════════════════════════════════════════════════════
-# КЛАСС DocumentProcessor (обработка загруженных документов)
-# ══════════════════════════════════════════════════════════════════════════════
-
-class DocumentProcessor:
-    """Uploaded document processor"""
-    
-    @staticmethod
-    def read_docx(file) -> Optional[str]:
-        """Read .docx file"""
-        try:
-            from docx import Document
-            doc = Document(file)
-            full_text = []
-            for para in doc.paragraphs:
-                if para.text:
-                    full_text.append(para.text)
-            
-            # Read tables
-            for table in doc.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for para in cell.paragraphs:
-                            if para.text:
-                                full_text.append(para.text)
-            
-            return '\n'.join(full_text)
-        except Exception as e:
-            st.error(f"Error reading DOCX: {e}")
-            return None
-    
-    @staticmethod
-    def read_doc(file) -> Optional[str]:
-        """Read .doc file (if antiword available)"""
-        try:
-            # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.doc', mode='wb') as tmp:
-                tmp.write(file.getvalue())
-                tmp_path = tmp.name
-            
-            # Try using antiword
-            try:
-                result = subprocess.run(['antiword', tmp_path], 
-                                       capture_output=True, text=True, timeout=10)
-                os.unlink(tmp_path)
-                if result.returncode == 0 and result.stdout:
-                    return result.stdout
-            except:
-                pass
-            
-            # If antiword fails, try text fallback
-            os.unlink(tmp_path)
-            
-            # Try reading as text file
-            file.seek(0)
-            content = file.getvalue().decode('utf-8', errors='ignore')
-            if len(content) > 100:
-                return content
-            
-            return None
-        except Exception as e:
-            return None
-
-# ══════════════════════════════════════════════════════════════════════════════
-# КЛАСС IntegratedRiskScorer (интегральная оценка риска)
-# ══════════════════════════════════════════════════════════════════════════════
-
-class IntegratedRiskScorer:
-    """Integrated risk assessment based on all modules"""
-    
-    def __init__(self):
-        # Module weights (используем константу MODULE_WEIGHTS)
-        self.weights = MODULE_WEIGHTS.copy()
-               
-        # Normalize weights
-        total = sum(self.weights.values())
-        if total > 0:
-            for key in self.weights:
-                self.weights[key] /= total
-    
-    def calculate(self, results: Dict) -> Dict:
-        """Calculate integrated risk with improved weighting"""
-        total_score = 0
-        total_confidence = 0
-        weighted_score = 0
-        module_scores = []
-        
-        # Проверяем, какие модули есть в результатах
-        available_modules = []
-        for module, weight in self.weights.items():
-            if module in results and results[module]:
-                available_modules.append(module)
-        
-        # Перенормируем веса только для доступных модулей
-        if available_modules:
-            # Сумма весов доступных модулей
-            total_available_weight = sum(self.weights[m] for m in available_modules)
-            
-            for module in available_modules:
-                data = results[module]
-                if 'risk_score' in data and data['risk_score'] is not None:
-                    # Нормализуем вес относительно доступных модулей
-                    normalized_weight = self.weights[module] / total_available_weight
-                    
-                    # Нормализуем risk_score с учетом увеличенного максимума (теперь до 6)
-                    max_score = 6  # БЫЛО 3, СТАЛО 6 (учет увеличенных значений)
-                    norm_score = min(data['risk_score'] / max_score, 1.0)
-                    
-                    # Для модулей с очень высоким риском - усиливаем сигнал
-                    if data['risk_score'] >= 5:
-                        norm_score = min(norm_score * 1.2, 1.0)  # буст для очень сильных сигналов
-                    
-                    # Учитываем confidence модуля
-                    confidence = data.get('confidence', 0.5)
-                    
-                    # Для модулей, где низкий риск = человеческий, инвертируем
-                    invert_modules = ['parenthesis', 'punctuation']
-                    if module in invert_modules and 'risk_score' in data:
-                        norm_score = 1.0 - norm_score
-                    
-                    # Вклад модуля в общий score
-                    contribution = norm_score * normalized_weight * 100
-                    
-                    module_score = {
-                        'module': module,
-                        'raw_score': data['risk_score'],
-                        'norm_score': norm_score,
-                        'weight': normalized_weight,
-                        'original_weight': self.weights[module],
-                        'confidence': confidence,
-                        'contribution': contribution
-                    }
-                    
-                    module_scores.append(module_score)
-                    weighted_score += norm_score * normalized_weight
-                    total_confidence += confidence * normalized_weight
-        
-        # Финальный score 0-100 - УВЕЛИЧИВАЕМ ЧУВСТВИТЕЛЬНОСТЬ
-        final_score = weighted_score * 100
-        
-        # Усиливаем влияние высоких скоров (нелинейное усиление)
-        if weighted_score > 0.5:
-            final_score = final_score * 1.2  # буст для явных случаев
-        elif weighted_score > 0.7:
-            final_score = final_score * 1.3  # еще больше буста
-        
-        # Корректировка на уверенность
-        if total_confidence > 0:
-            final_score = final_score * (0.5 + 0.5 * total_confidence)
-        
-        # Ограничиваем максимум 100
-        final_score = min(final_score, 100)
-        
-        # Определяем уровень риска
-        risk_level = 'unknown'
-        if final_score < 15:
-            risk_level = 'very_low'
-        elif final_score < 20:
-            risk_level = 'low'
-        elif final_score < 30:
-            risk_level = 'medium-low'
-        elif final_score < 40:
-            risk_level = 'medium'
-        elif final_score < 50:
-            risk_level = 'medium-high'
-        else:
-            risk_level = 'high'
-        
-        return {
-            'final_score': final_score,
-            'risk_level': risk_level,
-            'weighted_score': weighted_score,
-            'total_confidence': total_confidence,
-            'module_scores': module_scores,
-            'available_modules': available_modules
-        }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ОСНОВНАЯ ФУНКЦИЯ main()
-# ══════════════════════════════════════════════════════════════════════════════
+# ============================================================================
+# Main application
+# ============================================================================
 
 def main():
     # Initialize session state for steps
@@ -5708,6 +5297,14 @@ def main():
             </div>
             """, unsafe_allow_html=True)
             
+            # Module status simulation
+            modules = [
+                "Unicode Artifacts", "Dashes", "AI Phrases", "Burstiness", "Grammar",
+                "Hedging", "Parentheses", "Punctuation", "Apostrophes", "Enumerations",
+                "Paragraphs", "Repetitiveness", "Lexical Diversity", "Semantic Analysis",
+                "Text Statistics"
+            ]
+            
             progress_bar = st.progress(0)
             status_text = st.empty()
             
@@ -5736,63 +5333,98 @@ def main():
                 time.sleep(0.5)
                 
                 text = ReferenceCutoff.cut_at_references(text)
-                text = preprocess_text(text)
-                sentences = split_sentences_simple(text)
+                text = DocumentProcessor.preprocess(text)
+                sentences = DocumentProcessor.split_sentences_simple(text)
                 
                 # Module status display
                 module_container = st.empty()
                 
-                # Подготавливаем список анализаторов для отображения
-                display_analyzers = [
-                    {"display_name": "Unicode Artifacts"},
-                    {"display_name": "Multiple Dashes"},
-                    {"display_name": "AI Phrases"},
-                    {"display_name": "Tortured Phrases"},
-                    {"display_name": "Burstiness"},
-                    {"display_name": "Grammar Features"},
-                    {"display_name": "Hedging"},
-                    {"display_name": "Parentheses"},
-                    {"display_name": "Punctuation"},
-                    {"display_name": "Apostrophes"},
-                    {"display_name": "Enumerations"},
-                    {"display_name": "Paragraph Structure"},
-                    {"display_name": "Repetitiveness"},
-                    {"display_name": "Lexical Diversity"},
-                    {"display_name": "Text Statistics"}
+                # Results storage
+                results = {}
+                
+                # Run all analyzers with progress updates
+                analyzers = [
+                    ('unicode', UnicodeArtifactDetector(), 13),
+                    ('dashes', DashAnalyzer(), 17),
+                    ('phrases', AIPhraseDetector(), 21),
+                    ('tortured_phrases', TorturedPhraseDetector(), 25),
+                    ('burstiness', BurstinessAnalyzer(), 29),
+                    ('grammar', GrammarAnalyzer(), 33),
+                    ('hedging', HedgingAnalyzer(), 37),
+                    ('parenthesis', ParenthesisAnalyzer(), 41),
+                    ('punctuation', PunctuationAnalyzer(), 45),
+                    ('apostrophe', ApostropheAnalyzer(), 49),
+                    ('enumeration', EnumerationAnalyzer(), 53),
+                    ('paragraph', ParagraphAnalyzer(), 57),
+                    ('repetitiveness', RepetitivenessAnalyzer(), 61),
+                    ('lexical_diversity', LexicalDiversityAnalyzer(), 65)
                 ]
                 
                 # Show modules being analyzed
-                for i, mod_info in enumerate(display_analyzers):
-                    status_text.text(f"Analyzing: {mod_info['display_name']}...")
+                for i, (name, analyzer, progress) in enumerate(analyzers):
+                    status_text.text(f"Analyzing: {name.replace('_', ' ').title()}...")
                     
                     # Update module pills
                     module_html = '<div class="module-status">'
-                    for j, mod in enumerate(display_analyzers):
+                    for j, mod in enumerate(modules):
                         if j < i:
-                            module_html += f'<span class="module-pill completed">✓ {mod["display_name"]}</span>'
+                            module_html += f'<span class="module-pill completed">✓ {mod}</span>'
                         elif j == i:
-                            module_html += f'<span class="module-pill active">⚡ {mod["display_name"]}</span>'
+                            module_html += f'<span class="module-pill active">⚡ {mod}</span>'
                         else:
-                            module_html += f'<span class="module-pill">{mod["display_name"]}</span>'
+                            module_html += f'<span class="module-pill">{mod}</span>'
                     module_html += '</div>'
                     module_container.markdown(module_html, unsafe_allow_html=True)
                     
-                    progress_bar.progress(int((i + 1) / len(display_analyzers) * 65))  # 65% для основных модулей
+                    # Run analyzer
+                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph', 'repetitiveness']:
+                        results[name] = analyzer.analyze(text, sentences)
+                    else:
+                        results[name] = analyzer.analyze(text)
+                    
+                    progress_bar.progress(progress)
                     time.sleep(0.3)
                 
-                # Запускаем все анализаторы
-                status_text.text("Running analyzers...")
-                deep_analysis = st.checkbox("Enable Deep Analysis (slower)", value=False)
-                results = run_all_analyzers(text, sentences, deep_analysis)
-                
-                # Text Statistics Analyzer
+                # Text Statistics Analyzer (NEW!)
                 status_text.text("Calculating detailed text statistics...")
+                progress_bar.progress(68)
                 text_stats_analyzer = TextStatisticsAnalyzer()
                 text_stats = text_stats_analyzer.analyze(text, sentences)
                 results['text_statistics'] = text_stats
                 
-                progress_bar.progress(90)
+                # Update module pills for text statistics
+                module_html = '<div class="module-status">'
+                for j, mod in enumerate(modules):
+                    if j < len(analyzers):
+                        module_html += f'<span class="module-pill completed">✓ {mod}</span>'
+                    elif j == len(analyzers):
+                        module_html += f'<span class="module-pill active">⚡ {mod}</span>'
+                    else:
+                        module_html += f'<span class="module-pill">{mod}</span>'
+                module_html += '</div>'
+                module_container.markdown(module_html, unsafe_allow_html=True)
+                
+                progress_bar.progress(72)
                 time.sleep(0.3)
+                
+                # Deep analysis if available
+                deep_analysis = st.checkbox("Enable Deep Analysis (slower)", value=False)
+                if deep_analysis:
+                    deep_analyzers = [
+                        ('log_prob', LogProbAnalyzer(), 78),
+                        ('perplexity', PerplexityAnalyzer(), 84),
+                        ('semantic', SemanticAnalyzer(), 90),
+                        ('ml_classifier', MLClassifier(), 95)
+                    ]
+                    
+                    for name, analyzer, progress in deep_analyzers:
+                        status_text.text(f"Deep analysis: {name.replace('_', ' ').title()}...")
+                        if name == 'semantic':
+                            results[name] = analyzer.analyze(sentences)
+                        else:
+                            results[name] = analyzer.analyze(text)
+                        progress_bar.progress(progress)
+                        time.sleep(0.5)
                 
                 # Calculate integrated risk
                 status_text.text("Calculating integrated risk score...")
@@ -5957,7 +5589,7 @@ def main():
             
             st.markdown('</div>', unsafe_allow_html=True)
             
-            # Detailed Text Statistics Section
+            # NEW: Detailed Text Statistics Section
             if text_stats:
                 st.markdown("---")
                 st.markdown("## 📊 Detailed Text Statistics")
@@ -6065,7 +5697,7 @@ def main():
                         
                         with st.expander(f"— Dashes ({total_dashes} sentences with dashes, {double_dashes} with TWO dashes)"):
                             
-                            # Сначала показываем предложения с двумя тире
+                            # Сначала показываем предложения с двумя тире (как вы просили)
                             if dash_data.get('double_dash_sentences'):
                                 st.markdown("### 🔴 Sentences with TWO dashes (— —)")
                                 for i, item in enumerate(dash_data['double_dash_sentences']):
@@ -6182,7 +5814,7 @@ def main():
                             st.markdown(f"**{rep['ngram']}** — {rep['count']} times")
                 
                 # Dashes
-                if 'dashes' in results and results['dashes'] and (results['dashes'].get('all_dash_sentences') or results['dashes'].get('double_dash_sentences')):
+                if 'dashes' in results and (results['dashes']['all_dash_sentences'] or results['dashes']['double_dash_sentences']):
                     
                     if results['dashes']['double_dash_sentences']:
                         with st.expander(f"— Sentences with TWO dashes ({len(results['dashes']['double_dash_sentences'])} found) - CRITICAL FOR DETECTION"):
