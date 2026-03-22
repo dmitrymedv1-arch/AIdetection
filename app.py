@@ -6205,7 +6205,8 @@ def main():
                     module_container.markdown(module_html, unsafe_allow_html=True)
                     
                     # Run analyzer
-                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph', 'repetitiveness']:
+                    if name in ['phrases', 'punctuation', 'enumeration', 'paragraph', 'repetitiveness', 
+                                'pos_ngrams', 'subordinate_clauses', 'style_drift', 'discipline']:
                         results[name] = analyzer.analyze(text, sentences)
                     else:
                         results[name] = analyzer.analyze(text)
@@ -6227,6 +6228,8 @@ def main():
                         status_text.text(f"Deep analysis: {name.replace('_', ' ').title()}...")
                         if name == 'semantic':
                             results[name] = analyzer.analyze(sentences)
+                        elif name in ['languagetool', 'external_ai']:
+                            results[name] = analyzer.analyze(text, sentences)
                         else:
                             results[name] = analyzer.analyze(text)
                         progress_bar.progress(progress)
