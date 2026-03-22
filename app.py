@@ -4539,7 +4539,8 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Из модуля phrases
         if 'phrases' in results:
-            for occ in results['phrases'].get('all_phrase_occurrences', [])[:30]:
+            phrase_occurrences = results['phrases'].get('all_phrase_occurrences', [])
+            for occ in phrase_occurrences[:30]:
                 high_risk_examples.append(("AI phrase", occ.get('context', '')))
         
         if high_risk_examples:
@@ -5747,7 +5748,7 @@ def main():
                 analyzers = [
                     ('unicode', UnicodeArtifactDetector(), 13),
                     ('dashes', DashAnalyzer(), 17),
-                    ('phrases', AIPhraseDetector(), 21),
+                    ('ai_phrases', AIPhraseDetector(), 21),
                     ('tortured_phrases', TorturedPhraseDetector(), 25),
                     ('burstiness', BurstinessAnalyzer(), 29),
                     ('grammar', GrammarAnalyzer(), 33),
@@ -6150,7 +6151,13 @@ def main():
                         st.markdown(f"{i+1}. `{enum}`")
                 
                 if 'phrases' in results:
-                    with st.expander(f"AI Phrases ({len(results['phrases']['all_phrase_occurrences'])} occurrences)"):
+                    if 'all_phrase_occurrences' in results['phrases']:
+                        phrase_count = len(results['phrases']['all_phrase_occurrences'])
+                    else:
+                        # Если ключа нет, используем альтернативные данные
+                        phrase_count = results['phrases'].get('total_occurrences', 0)
+                    
+                    with st.expander(f"AI Phrases ({phrase_count} occurrences)"):
                         for occ in results['phrases']['all_phrase_occurrences'][:50]:
                             st.markdown(f"**{occ['phrase']}** → {occ['context'][:150]}")
             
@@ -6197,10 +6204,11 @@ def main():
                         st.write(", ".join(results['apostrophe']['all_apostrophes'][:200]))
                 
                 # AI Phrases
-                if 'phrases' in results and results['phrases']['all_phrase_occurrences']:
-                    with st.expander(f"🤖 AI Phrases ({len(results['phrases']['all_phrase_occurrences'])} occurrences)"):
-                        for occ in results['phrases']['all_phrase_occurrences'][:100]:
-                            st.markdown(f"**{occ['phrase']}** → {occ['context'][:150]}")
+                if 'phrases' in results:
+                    phrase_occurrences = results['phrases'].get('all_phrase_occurrences', [])
+                    with st.expander(f"AI Phrases ({len(phrase_occurrences)} occurrences)"):
+                        for occ in phrase_occurrences[:100]:
+                            st.markdown(f"**{occ.get('phrase', 'unknown')}** → {occ.get('context', '')[:150]}")
                 
                 # Semicolons
                 if 'punctuation' in results and results['punctuation']['all_semicolon_contexts']:
