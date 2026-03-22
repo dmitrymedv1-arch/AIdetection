@@ -2350,10 +2350,12 @@ class PunctuationAnalyzer:
         return results
 
 class ApostropheAnalyzer:
-    """Apostrophe 's analysis (new module)"""
+    """Apostrophe 's analysis with improved detection"""
     
     def __init__(self):
-        self.apostrophe_pattern = r"\w+'\w+"
+        self.apostrophe_pattern = r"\b\w+'\w+\b"  # Words with apostrophe
+        self.contraction_pattern = r"\b\w+'(?:t|re|ve|ll|m|d)\b"  # Common contractions
+        self.possessive_pattern = r"\b\w+'(?:s)?\b"  # Possessives
     
     def analyze(self, text: str) -> Dict:
         """Analyze apostrophe usage"""
@@ -2362,7 +2364,7 @@ class ApostropheAnalyzer:
             'apostrophe_per_1000': 0,
             'possessive_examples': [],
             'contraction_examples': [],
-            'all_apostrophes': [],  # All found apostrophes
+            'all_apostrophes': [],
             'risk_level': 'none',
             'risk_score': 0,
             'confidence': 0,
@@ -2380,31 +2382,46 @@ class ApostropheAnalyzer:
         words = text.split()
         total_words = len(words)
         
-        # Find all words with apostrophes
+        # Find all words with apostrophes (improved pattern)
         apostrophe_matches = re.findall(self.apostrophe_pattern, text)
-        results['apostrophe_count'] = len(apostrophe_matches)
+        
+        # Also catch standalone apostrophes (like in "O'Hayre")
+        standalone_apostrophe = re.findall(r"\b[A-Z]'[A-Za-z]+\b", text)
+        apostrophe_matches.extend(standalone_apostrophe)
+        
+        # Deduplicate while preserving order
+        seen = set()
+        unique_matches = []
+        for m in apostrophe_matches:
+            if m not in seen:
+                seen.add(m)
+                unique_matches.append(m)
+        
+        results['apostrophe_count'] = len(unique_matches)
+        results['all_apostrophes'] = unique_matches
         
         # Normalize per 1000 words
         if total_words > 0:
             results['apostrophe_per_1000'] = (results['apostrophe_count'] * 1000) / total_words
         
         # Classify examples
-        for match in apostrophe_matches:
-            match_data = match
-            results['all_apostrophes'].append(match_data)
-            
+        for match in unique_matches:
             if match.endswith("'s") and len(match) > 2:
                 base_word = match[:-2]
-                if base_word.isalpha() and len(results['possessive_examples']) < 50:
-                    results['possessive_examples'].append(match)
+                if base_word.isalpha() or (base_word[0].isupper() and len(base_word) > 1):
+                    if len(results['possessive_examples']) < 50:
+                        results['possessive_examples'].append(match)
             elif any(cont in match for cont in ["'t", "'re", "'ve", "'ll", "'m", "'d"]):
                 if len(results['contraction_examples']) < 30:
                     results['contraction_examples'].append(match)
         
-        # Statistics by paragraph
+        # Statistics by paragraph (improved)
         paragraphs = re.split(r'\n\s*\n', text)
-        apostrophes_per_paragraph = []
+        if len(paragraphs) <= 1:
+            # Try alternative paragraph splitting
+            paragraphs = [p for p in text.split('\n') if len(p.strip()) > 50]
         
+        apostrophes_per_paragraph = []
         for para in paragraphs[:50]:
             para_apostrophes = len(re.findall(self.apostrophe_pattern, para))
             apostrophes_per_paragraph.append(para_apostrophes)
@@ -2415,24 +2432,28 @@ class ApostropheAnalyzer:
             results['statistics']['max_apostrophes_in_paragraph'] = float(np.max(apostrophes_per_paragraph))
             results['statistics']['distribution'] = apostrophes_per_paragraph
         
-        # Risk assessment - УВЕЛИЧЕННЫЕ ЗНАЧЕНИЯ
+        # Risk assessment (inverted: more apostrophes = more human-like)
         risk_score = 0
         confidence = 0.5
         
         if results['apostrophe_per_1000'] > 2.0:
-            risk_score = 5                      # было 3, стало 5
-            confidence = 0.9
-        elif results['apostrophe_per_1000'] > 1.0:
-            risk_score = 4                      # было 2, стало 4
+            risk_score = 1  # Low risk (human-like)
             confidence = 0.7
-        elif results['apostrophe_per_1000'] > 0.3:
-            risk_score = 3                      # было 1, стало 3
+        elif results['apostrophe_per_1000'] > 1.0:
+            risk_score = 2  # Medium-low risk
             confidence = 0.6
-        else:
-            risk_score = 1                      # было 0, стало 1 (минимальный риск)
+        elif results['apostrophe_per_1000'] > 0.3:
+            risk_score = 3  # Medium risk
             confidence = 0.5
+        else:
+            risk_score = 4  # Higher risk (AI avoids apostrophes)
+            confidence = 0.65
         
-        results['risk_score'] = risk_score
+        # Adjust: if we found many possessives but no contractions, that's normal for academic
+        if len(results['possessive_examples']) > 5 and len(results['contraction_examples']) == 0:
+            risk_score = max(1, risk_score - 1)  # Less suspicious
+        
+        results['risk_score'] = min(risk_score, 6)
         results['confidence'] = confidence
         
         if risk_score >= 5:
@@ -2602,9 +2623,123 @@ class ParagraphAnalyzer:
                 self.available = False
     
     def split_paragraphs(self, text: str) -> List[str]:
-        """Split text into paragraphs"""
-        paragraphs = re.split(r'\n\s*\n', text)
-        return [p.strip() for p in paragraphs if len(p.strip()) > 50]
+        """
+        Improved paragraph splitting that handles:
+        - Double newlines
+        - Single newlines with indentation
+        - Numbered/bulleted lists
+        - Section headers
+        """
+        if not text:
+            return []
+        
+        # First, normalize line endings
+        text = text.replace('\r\n', '\n')
+        
+        paragraphs = []
+        
+        # Method 1: Try double newline separation
+        double_newline_paras = re.split(r'\n\s*\n', text)
+        if len(double_newline_paras) > 1:
+            # Filter out empty paragraphs and very short ones
+            for p in double_newline_paras:
+                p_clean = p.strip()
+                if len(p_clean) > 50:  # Reasonable minimum paragraph length
+                    paragraphs.append(p_clean)
+            
+            # If we found multiple paragraphs, return them
+            if len(paragraphs) > 1:
+                return paragraphs
+        
+        # Method 2: Split by lines and detect paragraph boundaries
+        lines = text.split('\n')
+        current_paragraph = []
+        paragraphs = []
+        
+        # Patterns that indicate a new paragraph
+        new_para_patterns = [
+            r'^\d+\.\s+',           # Numbered section: "1.", "2.1."
+            r'^[A-Z][a-z]+\.\s+',   # Lettered section: "A.", "B."
+            r'^[IVXLCDM]+\.\s+',    # Roman numerals: "I.", "II."
+            r'^Abstract\.?\s*$',    # Abstract section
+            r'^Introduction\.?\s*$', # Introduction
+            r'^[A-Z][a-z]+\s+[A-Z][a-z]+\.?\s*$', # Section header like "Results and Discussion"
+            r'^Keywords?:',         # Keywords line
+            r'^\*+\s*$',            # Separator line
+            r'^---+$',              # Horizontal rule
+        ]
+        
+        # Combined pattern
+        new_para_pattern = re.compile('|'.join(new_para_patterns), re.IGNORECASE)
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Skip empty lines
+            if not line_stripped:
+                if current_paragraph:
+                    # End of paragraph on empty line
+                    paragraph_text = ' '.join(current_paragraph)
+                    if len(paragraph_text.split()) > 10:  # Minimum words for a paragraph
+                        paragraphs.append(paragraph_text)
+                    current_paragraph = []
+                continue
+            
+            # Check if this line starts a new paragraph
+            is_new_paragraph = False
+            
+            # Pattern-based detection
+            if new_para_pattern.match(line_stripped):
+                is_new_paragraph = True
+            # Indentation detection (line starts with spaces)
+            elif line.startswith(' ') or line.startswith('\t'):
+                is_new_paragraph = True
+            # Very short line that might be a header
+            elif len(line_stripped.split()) <= 5 and len(line_stripped) < 40:
+                is_new_paragraph = True
+            # Line ends with colon (section header)
+            elif line_stripped.endswith(':'):
+                is_new_paragraph = True
+            
+            if is_new_paragraph and current_paragraph:
+                # Save previous paragraph
+                paragraph_text = ' '.join(current_paragraph)
+                if len(paragraph_text.split()) > 10:
+                    paragraphs.append(paragraph_text)
+                current_paragraph = [line_stripped]
+            else:
+                current_paragraph.append(line_stripped)
+        
+        # Add last paragraph
+        if current_paragraph:
+            paragraph_text = ' '.join(current_paragraph)
+            if len(paragraph_text.split()) > 10:
+                paragraphs.append(paragraph_text)
+        
+        # Method 3: If still only one paragraph, try splitting by section headers
+        if len(paragraphs) <= 1:
+            # Look for numbered sections like "1. Introduction", "3.2. Results"
+            section_pattern = r'\n(\d+(?:\.\d+)*\.?\s+[A-Z][^\n]+)\n'
+            sections = re.split(section_pattern, text)
+            
+            if len(sections) > 2:
+                paragraphs = []
+                for i in range(1, len(sections), 2):
+                    header = sections[i].strip()
+                    content = sections[i+1].strip() if i+1 < len(sections) else ''
+                    full_section = f"{header}\n{content}".strip()
+                    if len(full_section.split()) > 20:
+                        paragraphs.append(full_section)
+        
+        # Final cleaning
+        paragraphs = [p for p in paragraphs if len(p.split()) > 15]
+        
+        # If still no paragraphs, treat entire text as one paragraph with warning
+        if not paragraphs and len(text.split()) > 50:
+            paragraphs = [text.strip()]
+            self._paragraph_warning = True  # Store warning flag
+        
+        return paragraphs
     
     def analyze(self, text: str, sentences: List[str]) -> Dict:
         """Analyze intra and inter paragraph homogeneity"""
@@ -3053,7 +3188,9 @@ class TextStatisticsAnalyzer:
         return [p.strip() for p in paragraphs if p.strip()]
     
     def analyze(self, text: str, sentences: List[str]) -> Dict:
-        """Analyze comprehensive text statistics"""
+        """
+        Comprehensive text statistics analyzer with improved detection.
+        """
         results = {
             'sentence_lengths': [],
             'paragraph_lengths': [],
@@ -3072,6 +3209,12 @@ class TextStatisticsAnalyzer:
             'figure_mentions': [],
             'table_mentions': [],
             'supplementary_mentions': [],
+            # NEW: Gerund context storage
+            'gerund_contexts': [],
+            'gerund_the_count': 0,
+            'gerund_of_count': 0,
+            'gerund_a_count': 0,
+            'gerund_an_count': 0,
             'statistics': {
                 'sentence_length': {},
                 'paragraph_length': {},
@@ -3093,44 +3236,79 @@ class TextStatisticsAnalyzer:
         if not text or not sentences:
             return results
         
-        # Split into paragraphs
+        # Split into paragraphs (improved)
         paragraphs = self.split_paragraphs(text)
+        
+        # ===== IMPROVED GERUND DETECTION (pre-sentence analysis) =====
+        gerund_pattern = r'\b([a-zA-Z]+ing)\b'
+        gerund_positions = []
+        
+        for match in re.finditer(gerund_pattern, text, re.IGNORECASE):
+            gerund_positions.append(match.end())
+        
+        # Analyze what follows each gerund
+        for pos in gerund_positions:
+            context = text[pos:pos+40]
+            
+            if re.match(r'\s+the\b', context, re.IGNORECASE):
+                results['gerund_the_count'] += 1
+                # Store example
+                gerund_match = re.search(r'\b(\w+ing)\b', text[max(0, pos-20):pos])
+                if gerund_match and len(results['gerund_contexts']) < 30:
+                    after_text = context[context.find('the')+4:context.find('the')+40].strip()
+                    results['gerund_contexts'].append({
+                        'type': 'the',
+                        'phrase': f"{gerund_match.group(1)} the {after_text}"[:100]
+                    })
+            
+            elif re.match(r'\s+of\b', context, re.IGNORECASE):
+                results['gerund_of_count'] += 1
+                gerund_match = re.search(r'\b(\w+ing)\b', text[max(0, pos-20):pos])
+                if gerund_match and len(results['gerund_contexts']) < 30:
+                    after_text = context[context.find('of')+3:context.find('of')+40].strip()
+                    results['gerund_contexts'].append({
+                        'type': 'of',
+                        'phrase': f"{gerund_match.group(1)} of {after_text}"[:100]
+                    })
+            
+            elif re.match(r'\s+a\b', context, re.IGNORECASE):
+                results['gerund_a_count'] += 1
+            
+            elif re.match(r'\s+an\b', context, re.IGNORECASE):
+                results['gerund_an_count'] += 1
         
         # ===== SENTENCE-LEVEL STATISTICS =====
         for sentence in sentences:
             if not sentence or len(sentence.strip()) < 2:
                 continue
             
-            # Sentence length in words
             words = sentence.split()
             sent_length = len(words)
             results['sentence_lengths'].append(sent_length)
             
-            # Commas count
+            # Commas
             comma_count = sentence.count(',')
             results['commas_per_sentence'].append(comma_count)
             
-            # Apostrophes count
+            # Apostrophes
             apostrophe_count = len(re.findall(r"'", sentence))
             results['apostrophes_per_sentence'].append(apostrophe_count)
             
             # -ly adverbs
-            ly_adverbs = len(re.findall(self.ly_adverb_pattern, sentence, re.IGNORECASE))
+            ly_adverbs = len(re.findall(r'\b\w+ly\b', sentence, re.IGNORECASE))
             results['ly_adverbs_per_sentence'].append(ly_adverbs)
             
-            # Gerund + the
-            gerund_the = len(re.findall(self.gerund_the_pattern, sentence, re.IGNORECASE))
-            results['gerund_the_per_sentence'].append(gerund_the)
-            
-            # Gerund + of
-            gerund_of = len(re.findall(self.gerund_of_pattern, sentence, re.IGNORECASE))
-            results['gerund_of_per_sentence'].append(gerund_of)
+            # Gerund patterns per sentence
+            gerund_the_sent = len(re.findall(r'\b\w+ing\s+the\b', sentence, re.IGNORECASE))
+            gerund_of_sent = len(re.findall(r'\b\w+ing\s+of\b', sentence, re.IGNORECASE))
+            results['gerund_the_per_sentence'].append(gerund_the_sent)
+            results['gerund_of_per_sentence'].append(gerund_of_sent)
             
             # Indefinite articles
-            articles = len(re.findall(self.indefinite_article_pattern, sentence))
+            articles = len(re.findall(r'\b(a|an|A|An)\b', sentence))
             results['indefinite_articles_per_sentence'].append(articles)
             
-            # Figure mentions with full sentence
+            # Figure/Table/Supplementary mentions (with full sentence context)
             for pattern in self.figure_patterns:
                 matches = re.findall(pattern, sentence, re.IGNORECASE)
                 for match in matches:
@@ -3139,7 +3317,6 @@ class TextStatisticsAnalyzer:
                         'match': match
                     })
             
-            # Table mentions with full sentence
             for pattern in self.table_patterns:
                 matches = re.findall(pattern, sentence, re.IGNORECASE)
                 for match in matches:
@@ -3148,7 +3325,6 @@ class TextStatisticsAnalyzer:
                         'match': match
                     })
             
-            # Supplementary mentions with full sentence
             for pattern in self.supplementary_patterns:
                 matches = re.findall(pattern, sentence, re.IGNORECASE)
                 for match in matches:
@@ -3162,44 +3338,28 @@ class TextStatisticsAnalyzer:
             if not paragraph:
                 continue
             
-            # Paragraph length in words
             para_words = paragraph.split()
             para_length = len(para_words)
             results['paragraph_lengths'].append(para_length)
             
-            # Commas per paragraph
-            comma_count = paragraph.count(',')
-            results['commas_per_paragraph'].append(comma_count)
-            
-            # Apostrophes per paragraph
-            apostrophe_count = len(re.findall(r"'", paragraph))
-            results['apostrophes_per_paragraph'].append(apostrophe_count)
-            
-            # -ly adverbs per paragraph
-            ly_adverbs = len(re.findall(self.ly_adverb_pattern, paragraph, re.IGNORECASE))
-            results['ly_adverbs_per_paragraph'].append(ly_adverbs)
-            
-            # Gerund + the per paragraph
-            gerund_the = len(re.findall(self.gerund_the_pattern, paragraph, re.IGNORECASE))
-            results['gerund_the_per_paragraph'].append(gerund_the)
-            
-            # Gerund + of per paragraph
-            gerund_of = len(re.findall(self.gerund_of_pattern, paragraph, re.IGNORECASE))
-            results['gerund_of_per_paragraph'].append(gerund_of)
-            
-            # Indefinite articles per paragraph
-            articles = len(re.findall(self.indefinite_article_pattern, paragraph))
-            results['indefinite_articles_per_paragraph'].append(articles)
+            results['commas_per_paragraph'].append(paragraph.count(','))
+            results['apostrophes_per_paragraph'].append(len(re.findall(r"'", paragraph)))
+            results['ly_adverbs_per_paragraph'].append(len(re.findall(r'\b\w+ly\b', paragraph, re.IGNORECASE)))
+            results['gerund_the_per_paragraph'].append(len(re.findall(r'\b\w+ing\s+the\b', paragraph, re.IGNORECASE)))
+            results['gerund_of_per_paragraph'].append(len(re.findall(r'\b\w+ing\s+of\b', paragraph, re.IGNORECASE)))
+            results['indefinite_articles_per_paragraph'].append(len(re.findall(r'\b(a|an|A|An)\b', paragraph)))
         
         # ===== CALCULATE STATISTICS =====
         def calculate_stats(values):
             if not values:
-                return {'min': 0, 'max': 0, 'mean': 0, 'median': 0}
+                return {'min': 0, 'max': 0, 'mean': 0, 'median': 0, 'total': 0}
             return {
                 'min': float(np.min(values)),
                 'max': float(np.max(values)),
                 'mean': float(np.mean(values)),
-                'median': float(np.median(values))
+                'median': float(np.median(values)),
+                'total': sum(values),
+                'count': len(values)
             }
         
         # Sentence-level stats
@@ -3220,13 +3380,16 @@ class TextStatisticsAnalyzer:
         results['statistics']['gerund_of_per_paragraph'] = calculate_stats(results['gerund_of_per_paragraph'])
         results['statistics']['indefinite_articles_per_paragraph'] = calculate_stats(results['indefinite_articles_per_paragraph'])
         
-        # Additional counts for figures/tables/supplementary
+        # Additional counts
         results['figure_count'] = len(results['figure_mentions'])
         results['table_count'] = len(results['table_mentions'])
         results['supplementary_count'] = len(results['supplementary_mentions'])
         
+        # Add warning flag if paragraph detection failed
+        if len(paragraphs) <= 1 and len(text.split()) > 500:
+            results['paragraph_warning'] = True
+        
         return results
-
 
 class IntegratedRiskScorer:
     """Integrated risk assessment based on all modules"""
@@ -3418,9 +3581,87 @@ class DocumentProcessor:
     
     @staticmethod
     def split_sentences_simple(text: str) -> List[str]:
-        """Simple sentence segmentation without spacy"""
-        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-        return [s.strip() for s in sentences if len(s.strip()) > 10]
+        """
+        Improved sentence segmentation with handling of abbreviations,
+        numbers, and scientific notation.
+        """
+        if not text:
+            return []
+        
+        # Common abbreviations that should NOT trigger sentence breaks
+        abbreviations = {
+            # Academic titles
+            'Dr', 'Mr', 'Mrs', 'Ms', 'Prof', 'Rev', 'Hon', 'St', 'Sr', 'Jr',
+            # Latin abbreviations
+            'i.e', 'e.g', 'vs', 'et al', 'etc', 'cf', 'op cit', 'loc cit',
+            # Units and measures
+            'Fig', 'Figs', 'Table', 'Tables', 'Eq', 'Eqs', 'Sec', 'Secs', 'Ch', 'Chs',
+            'Vol', 'Vols', 'No', 'Nos', 'p', 'pp', 'ed', 'eds', 'trans',
+            # Time
+            'a.m', 'p.m', 'AM', 'PM',
+            # Scientific abbreviations (often in caps)
+            'PCC', 'PCFC', 'PCEC', 'SOFC', 'SOEC', 'ORR', 'OER', 'TCO', 'MIEC',
+            'TPB', 'DPB', 'YSZ', 'GDC', 'LSCF', 'BSCF', 'BCZY', 'LSCM', 'SFM',
+            # Common in your article
+            'CN', 'US', 'AU', 'KR', 'JP', 'GT', 'DTU', 'ICL', 'NJTECH', 'CU'
+        }
+        
+        # Build pattern for abbreviations that should NOT break sentences
+        # Pattern matches abbreviation followed by dot and then optional space and capital letter
+        # But we'll protect them from being split
+        protected_pattern = r'\b(' + '|'.join(re.escape(abbr) for abbr in abbreviations) + r')\.'
+        
+        # Temporarily protect abbreviations by replacing them with placeholders
+        protected = {}
+        counter = 0
+        
+        def protect_abbrev(match):
+            nonlocal counter
+            placeholder = f"__ABBREV_{counter}__"
+            protected[placeholder] = match.group(0)
+            counter += 1
+            return placeholder
+        
+        # First, protect known abbreviations
+        text_protected = re.sub(protected_pattern, protect_abbrev, text)
+        
+        # Also protect numbers with dots (like "5.3%", "Fig. 3", "Section 3.2")
+        number_pattern = r'\b\d+\.\d+\b'
+        text_protected = re.sub(number_pattern, protect_abbrev, text_protected)
+        
+        # Now do sentence splitting
+        # Pattern: look for .!? followed by space and capital letter
+        # But don't split on .!? inside quotes or parentheses (handled by regex)
+        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text_protected)
+        
+        # Restore protected abbreviations
+        restored_sentences = []
+        for sent in sentences:
+            for placeholder, original in protected.items():
+                sent = sent.replace(placeholder, original)
+            # Clean up
+            sent = sent.strip()
+            if len(sent) > 10:  # Minimum sentence length
+                restored_sentences.append(sent)
+        
+        # Additional pass: merge sentences that were split incorrectly
+        # (e.g., after "et al." which wasn't in abbreviations list)
+        merged_sentences = []
+        skip_next = False
+        
+        for i, sent in enumerate(restored_sentences):
+            if skip_next:
+                skip_next = False
+                continue
+                
+            # Check if this sentence is too short and might be part of previous
+            if len(sent.split()) < 5 and i > 0:
+                # Merge with previous
+                merged_sentences[-1] = merged_sentences[-1] + " " + sent
+            else:
+                merged_sentences.append(sent)
+        
+        return merged_sentences
     
     @staticmethod
     def preprocess(text: str) -> str:
