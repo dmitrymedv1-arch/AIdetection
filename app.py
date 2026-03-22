@@ -1360,11 +1360,6 @@ class BurstinessAnalyzer:
         if results['mean_length'] > 0:
             results['yules_i'] = float((variance / results['mean_length']) * 10000)
         
-        # Syntactic Irregularity Coefficient (SIC) - simple metric
-        # Ratio of max to min length with adjustment
-        if results['statistics']['min_length'] > 0:
-            results['sic'] = float(results['statistics']['max_length'] / results['statistics']['min_length'])
-        
         # Additional statistics
         results['statistics']['median_length'] = float(np.median(sent_lengths))
         results['statistics']['max_length'] = float(np.max(sent_lengths))
@@ -1372,6 +1367,11 @@ class BurstinessAnalyzer:
         results['statistics']['percentile_25'] = float(q25)
         results['statistics']['percentile_75'] = float(q75)
         results['statistics']['distribution'] = sent_lengths[:200]
+        
+        # Syntactic Irregularity Coefficient (SIC) - simple metric
+        # Ratio of max to min length with adjustment
+        if results['statistics']['min_length'] > 0:
+            results['sic'] = float(results['statistics']['max_length'] / results['statistics']['min_length'])
         
         # Probabilistic burstiness assessment based on Yule's I
         risk_score = 0
@@ -3003,6 +3003,230 @@ class SemanticAnalyzer:
         
         return results
 
+class TextStatisticsAnalyzer:
+    """Comprehensive text statistics analyzer for detailed metrics"""
+    
+    def __init__(self):
+        # Patterns for detection
+        self.ly_adverb_pattern = r'\b\w+ly\b'
+        self.gerund_the_pattern = r'\b\w+ing\s+the\b'
+        self.gerund_of_pattern = r'\b\w+ing\s+of\b'
+        self.indefinite_article_pattern = r'\b(a|an|A|An)\b'
+        
+        # Patterns for figures and tables
+        self.figure_patterns = [
+            r'Figure\s+\d+',
+            r'Figures\s+\d+\s+and\s+\d+',
+            r'Figures\s+\d+[-–]\d+',
+            r'Figure\s+\d+[A-Z]?',
+            r'Figs\.?\s+\d+'
+        ]
+        
+        self.table_patterns = [
+            r'Table\s+\d+',
+            r'Tables\s+\d+\s+and\s+\d+',
+            r'Tables\s+\d+[-–]\d+',
+            r'Table\s+\d+[A-Z]?',
+            r'Tables?\s+\d+'
+        ]
+        
+        self.supplementary_patterns = [
+            r'supplementary materials?',
+            r'supplementary information',
+            r'electronic supplementary materials?',
+            r'electronic supplementary information',
+            r'Figure\s+S\d+',
+            r'Figure\s+\d+S',
+            r'Table\s+S\d+',
+            r'Table\s+\d+S',
+            r'Figures?\s+S\d+[-–]S\d+',
+            r'Tables?\s+S\d+[-–]S\d+',
+            r'Figures?\s+\d+S\s+and\s+\d+S',
+            r'Tables?\s+\d+S\s+and\s+\d+S'
+        ]
+    
+    def split_paragraphs(self, text: str) -> List[str]:
+        """Split text into paragraphs"""
+        # Split by double newlines
+        paragraphs = re.split(r'\n\s*\n', text)
+        # Filter out empty paragraphs
+        return [p.strip() for p in paragraphs if p.strip()]
+    
+    def analyze(self, text: str, sentences: List[str]) -> Dict:
+        """Analyze comprehensive text statistics"""
+        results = {
+            'sentence_lengths': [],
+            'paragraph_lengths': [],
+            'commas_per_sentence': [],
+            'commas_per_paragraph': [],
+            'apostrophes_per_sentence': [],
+            'apostrophes_per_paragraph': [],
+            'ly_adverbs_per_sentence': [],
+            'ly_adverbs_per_paragraph': [],
+            'gerund_the_per_sentence': [],
+            'gerund_the_per_paragraph': [],
+            'gerund_of_per_sentence': [],
+            'gerund_of_per_paragraph': [],
+            'indefinite_articles_per_sentence': [],
+            'indefinite_articles_per_paragraph': [],
+            'figure_mentions': [],
+            'table_mentions': [],
+            'supplementary_mentions': [],
+            'statistics': {
+                'sentence_length': {},
+                'paragraph_length': {},
+                'commas_per_sentence': {},
+                'commas_per_paragraph': {},
+                'apostrophes_per_sentence': {},
+                'apostrophes_per_paragraph': {},
+                'ly_adverbs_per_sentence': {},
+                'ly_adverbs_per_paragraph': {},
+                'gerund_the_per_sentence': {},
+                'gerund_the_per_paragraph': {},
+                'gerund_of_per_sentence': {},
+                'gerund_of_per_paragraph': {},
+                'indefinite_articles_per_sentence': {},
+                'indefinite_articles_per_paragraph': {}
+            }
+        }
+        
+        if not text or not sentences:
+            return results
+        
+        # Split into paragraphs
+        paragraphs = self.split_paragraphs(text)
+        
+        # ===== SENTENCE-LEVEL STATISTICS =====
+        for sentence in sentences:
+            if not sentence or len(sentence.strip()) < 2:
+                continue
+            
+            # Sentence length in words
+            words = sentence.split()
+            sent_length = len(words)
+            results['sentence_lengths'].append(sent_length)
+            
+            # Commas count
+            comma_count = sentence.count(',')
+            results['commas_per_sentence'].append(comma_count)
+            
+            # Apostrophes count
+            apostrophe_count = len(re.findall(r"'", sentence))
+            results['apostrophes_per_sentence'].append(apostrophe_count)
+            
+            # -ly adverbs
+            ly_adverbs = len(re.findall(self.ly_adverb_pattern, sentence, re.IGNORECASE))
+            results['ly_adverbs_per_sentence'].append(ly_adverbs)
+            
+            # Gerund + the
+            gerund_the = len(re.findall(self.gerund_the_pattern, sentence, re.IGNORECASE))
+            results['gerund_the_per_sentence'].append(gerund_the)
+            
+            # Gerund + of
+            gerund_of = len(re.findall(self.gerund_of_pattern, sentence, re.IGNORECASE))
+            results['gerund_of_per_sentence'].append(gerund_of)
+            
+            # Indefinite articles
+            articles = len(re.findall(self.indefinite_article_pattern, sentence))
+            results['indefinite_articles_per_sentence'].append(articles)
+            
+            # Figure mentions with full sentence
+            for pattern in self.figure_patterns:
+                matches = re.findall(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    results['figure_mentions'].append({
+                        'sentence': sentence.strip(),
+                        'match': match
+                    })
+            
+            # Table mentions with full sentence
+            for pattern in self.table_patterns:
+                matches = re.findall(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    results['table_mentions'].append({
+                        'sentence': sentence.strip(),
+                        'match': match
+                    })
+            
+            # Supplementary mentions with full sentence
+            for pattern in self.supplementary_patterns:
+                matches = re.findall(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    results['supplementary_mentions'].append({
+                        'sentence': sentence.strip(),
+                        'match': match
+                    })
+        
+        # ===== PARAGRAPH-LEVEL STATISTICS =====
+        for paragraph in paragraphs:
+            if not paragraph:
+                continue
+            
+            # Paragraph length in words
+            para_words = paragraph.split()
+            para_length = len(para_words)
+            results['paragraph_lengths'].append(para_length)
+            
+            # Commas per paragraph
+            comma_count = paragraph.count(',')
+            results['commas_per_paragraph'].append(comma_count)
+            
+            # Apostrophes per paragraph
+            apostrophe_count = len(re.findall(r"'", paragraph))
+            results['apostrophes_per_paragraph'].append(apostrophe_count)
+            
+            # -ly adverbs per paragraph
+            ly_adverbs = len(re.findall(self.ly_adverb_pattern, paragraph, re.IGNORECASE))
+            results['ly_adverbs_per_paragraph'].append(ly_adverbs)
+            
+            # Gerund + the per paragraph
+            gerund_the = len(re.findall(self.gerund_the_pattern, paragraph, re.IGNORECASE))
+            results['gerund_the_per_paragraph'].append(gerund_the)
+            
+            # Gerund + of per paragraph
+            gerund_of = len(re.findall(self.gerund_of_pattern, paragraph, re.IGNORECASE))
+            results['gerund_of_per_paragraph'].append(gerund_of)
+            
+            # Indefinite articles per paragraph
+            articles = len(re.findall(self.indefinite_article_pattern, paragraph))
+            results['indefinite_articles_per_paragraph'].append(articles)
+        
+        # ===== CALCULATE STATISTICS =====
+        def calculate_stats(values):
+            if not values:
+                return {'min': 0, 'max': 0, 'mean': 0, 'median': 0}
+            return {
+                'min': float(np.min(values)),
+                'max': float(np.max(values)),
+                'mean': float(np.mean(values)),
+                'median': float(np.median(values))
+            }
+        
+        # Sentence-level stats
+        results['statistics']['sentence_length'] = calculate_stats(results['sentence_lengths'])
+        results['statistics']['commas_per_sentence'] = calculate_stats(results['commas_per_sentence'])
+        results['statistics']['apostrophes_per_sentence'] = calculate_stats(results['apostrophes_per_sentence'])
+        results['statistics']['ly_adverbs_per_sentence'] = calculate_stats(results['ly_adverbs_per_sentence'])
+        results['statistics']['gerund_the_per_sentence'] = calculate_stats(results['gerund_the_per_sentence'])
+        results['statistics']['gerund_of_per_sentence'] = calculate_stats(results['gerund_of_per_sentence'])
+        results['statistics']['indefinite_articles_per_sentence'] = calculate_stats(results['indefinite_articles_per_sentence'])
+        
+        # Paragraph-level stats
+        results['statistics']['paragraph_length'] = calculate_stats(results['paragraph_lengths'])
+        results['statistics']['commas_per_paragraph'] = calculate_stats(results['commas_per_paragraph'])
+        results['statistics']['apostrophes_per_paragraph'] = calculate_stats(results['apostrophes_per_paragraph'])
+        results['statistics']['ly_adverbs_per_paragraph'] = calculate_stats(results['ly_adverbs_per_paragraph'])
+        results['statistics']['gerund_the_per_paragraph'] = calculate_stats(results['gerund_the_per_paragraph'])
+        results['statistics']['gerund_of_per_paragraph'] = calculate_stats(results['gerund_of_per_paragraph'])
+        results['statistics']['indefinite_articles_per_paragraph'] = calculate_stats(results['indefinite_articles_per_paragraph'])
+        
+        # Additional counts for figures/tables/supplementary
+        results['figure_count'] = len(results['figure_mentions'])
+        results['table_count'] = len(results['table_mentions'])
+        results['supplementary_count'] = len(results['supplementary_mentions'])
+        
+        return results
+
 
 class IntegratedRiskScorer:
     """Integrated risk assessment based on all modules"""
@@ -3449,6 +3673,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         sentences = results_data.get('sentences', [])
         results = results_data.get('results', {})
         integrated = results_data.get('integrated', {})
+        text_stats = results_data.get('text_statistics', {})
         
         # 1. ОБЩИЙ СЧЕТ
         story.append(Paragraph("1. OVERALL RISK ASSESSMENT", section_style))
@@ -3500,6 +3725,202 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         story.append(stats_table)
         story.append(Spacer(1, 0.5*cm))
+        
+        # 1.5 ДЕТАЛЬНАЯ СТАТИСТИКА (NEW!)
+        if text_stats:
+            story.append(Paragraph("1.5 Detailed Text Statistics", section_style))
+            
+            # Sentence length statistics
+            story.append(Paragraph("Sentence Length (words):", subsection_style))
+            sent_stats = text_stats.get('statistics', {}).get('sentence_length', {})
+            sent_data = [
+                ["Min", f"{sent_stats.get('min', 0):.1f}"],
+                ["Max", f"{sent_stats.get('max', 0):.1f}"],
+                ["Mean", f"{sent_stats.get('mean', 0):.1f}"],
+                ["Median", f"{sent_stats.get('median', 0):.1f}"]
+            ]
+            sent_table = Table(sent_data, colWidths=[doc.width/4, doc.width/4])
+            sent_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#9B59B6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(sent_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Paragraph length statistics
+            story.append(Paragraph("Paragraph Length (words):", subsection_style))
+            para_stats = text_stats.get('statistics', {}).get('paragraph_length', {})
+            para_data = [
+                ["Min", f"{para_stats.get('min', 0):.1f}"],
+                ["Max", f"{para_stats.get('max', 0):.1f}"],
+                ["Mean", f"{para_stats.get('mean', 0):.1f}"],
+                ["Median", f"{para_stats.get('median', 0):.1f}"]
+            ]
+            para_table = Table(para_data, colWidths=[doc.width/4, doc.width/4])
+            para_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#9B59B6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(para_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Commas per sentence
+            story.append(Paragraph("Commas per Sentence:", subsection_style))
+            comma_stats = text_stats.get('statistics', {}).get('commas_per_sentence', {})
+            comma_data = [
+                ["Min", f"{comma_stats.get('min', 0):.1f}"],
+                ["Max", f"{comma_stats.get('max', 0):.1f}"],
+                ["Mean", f"{comma_stats.get('mean', 0):.1f}"],
+                ["Median", f"{comma_stats.get('median', 0):.1f}"]
+            ]
+            comma_table = Table(comma_data, colWidths=[doc.width/4, doc.width/4])
+            comma_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E67E22')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(comma_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Apostrophes per sentence
+            story.append(Paragraph("Apostrophes per Sentence:", subsection_style))
+            apost_stats = text_stats.get('statistics', {}).get('apostrophes_per_sentence', {})
+            apost_data = [
+                ["Min", f"{apost_stats.get('min', 0):.1f}"],
+                ["Max", f"{apost_stats.get('max', 0):.1f}"],
+                ["Mean", f"{apost_stats.get('mean', 0):.1f}"],
+                ["Median", f"{apost_stats.get('median', 0):.1f}"]
+            ]
+            apost_table = Table(apost_data, colWidths=[doc.width/4, doc.width/4])
+            apost_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E74C3C')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(apost_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # -ly adverbs per sentence
+            story.append(Paragraph("-ly Adverbs per Sentence:", subsection_style))
+            ly_stats = text_stats.get('statistics', {}).get('ly_adverbs_per_sentence', {})
+            ly_data = [
+                ["Min", f"{ly_stats.get('min', 0):.1f}"],
+                ["Max", f"{ly_stats.get('max', 0):.1f}"],
+                ["Mean", f"{ly_stats.get('mean', 0):.1f}"],
+                ["Median", f"{ly_stats.get('median', 0):.1f}"]
+            ]
+            ly_table = Table(ly_data, colWidths=[doc.width/4, doc.width/4])
+            ly_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498DB')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(ly_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Gerund + the per sentence
+            story.append(Paragraph("Gerund + 'the' per Sentence:", subsection_style))
+            gerund_the_stats = text_stats.get('statistics', {}).get('gerund_the_per_sentence', {})
+            gerund_the_data = [
+                ["Min", f"{gerund_the_stats.get('min', 0):.1f}"],
+                ["Max", f"{gerund_the_stats.get('max', 0):.1f}"],
+                ["Mean", f"{gerund_the_stats.get('mean', 0):.1f}"],
+                ["Median", f"{gerund_the_stats.get('median', 0):.1f}"]
+            ]
+            gerund_the_table = Table(gerund_the_data, colWidths=[doc.width/4, doc.width/4])
+            gerund_the_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#16A085')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(gerund_the_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Gerund + of per sentence
+            story.append(Paragraph("Gerund + 'of' per Sentence:", subsection_style))
+            gerund_of_stats = text_stats.get('statistics', {}).get('gerund_of_per_sentence', {})
+            gerund_of_data = [
+                ["Min", f"{gerund_of_stats.get('min', 0):.1f}"],
+                ["Max", f"{gerund_of_stats.get('max', 0):.1f}"],
+                ["Mean", f"{gerund_of_stats.get('mean', 0):.1f}"],
+                ["Median", f"{gerund_of_stats.get('median', 0):.1f}"]
+            ]
+            gerund_of_table = Table(gerund_of_data, colWidths=[doc.width/4, doc.width/4])
+            gerund_of_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F39C12')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(gerund_of_table)
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Indefinite articles per sentence
+            story.append(Paragraph("Indefinite Articles (a/an) per Sentence:", subsection_style))
+            article_stats = text_stats.get('statistics', {}).get('indefinite_articles_per_sentence', {})
+            article_data = [
+                ["Min", f"{article_stats.get('min', 0):.1f}"],
+                ["Max", f"{article_stats.get('max', 0):.1f}"],
+                ["Mean", f"{article_stats.get('mean', 0):.1f}"],
+                ["Median", f"{article_stats.get('median', 0):.1f}"]
+            ]
+            article_table = Table(article_data, colWidths=[doc.width/4, doc.width/4])
+            article_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#8E44AD')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(article_table)
+            story.append(Spacer(1, 0.5*cm))
+            
+            # Figure mentions
+            if text_stats.get('figure_mentions'):
+                story.append(Paragraph(f"Figure Mentions (Total: {text_stats.get('figure_count', 0)}):", subsection_style))
+                for mention in text_stats['figure_mentions'][:10]:
+                    clean_sent = clean_text_for_pdf(mention['sentence'])[:200]
+                    story.append(Paragraph(f"• {clean_sent}...", example_style))
+                if len(text_stats['figure_mentions']) > 10:
+                    story.append(Paragraph(f"... and {len(text_stats['figure_mentions']) - 10} more mentions", example_style))
+                story.append(Spacer(1, 0.3*cm))
+            
+            # Table mentions
+            if text_stats.get('table_mentions'):
+                story.append(Paragraph(f"Table Mentions (Total: {text_stats.get('table_count', 0)}):", subsection_style))
+                for mention in text_stats['table_mentions'][:10]:
+                    clean_sent = clean_text_for_pdf(mention['sentence'])[:200]
+                    story.append(Paragraph(f"• {clean_sent}...", example_style))
+                if len(text_stats['table_mentions']) > 10:
+                    story.append(Paragraph(f"... and {len(text_stats['table_mentions']) - 10} more mentions", example_style))
+                story.append(Spacer(1, 0.3*cm))
+            
+            # Supplementary mentions
+            if text_stats.get('supplementary_mentions'):
+                story.append(Paragraph(f"Supplementary Mentions (Total: {text_stats.get('supplementary_count', 0)}):", subsection_style))
+                for mention in text_stats['supplementary_mentions'][:10]:
+                    clean_sent = clean_text_for_pdf(mention['sentence'])[:200]
+                    story.append(Paragraph(f"• {clean_sent}...", example_style))
+                if len(text_stats['supplementary_mentions']) > 10:
+                    story.append(Paragraph(f"... and {len(text_stats['supplementary_mentions']) - 10} more mentions", example_style))
+                story.append(Spacer(1, 0.3*cm))
+        
+        story.append(PageBreak())
         
         # 2. МОДУЛИ АНАЛИЗА
         story.append(Paragraph("2. MODULE CONTRIBUTIONS", section_style))
@@ -3570,9 +3991,32 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
                     story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
             story.append(Spacer(1, 0.3*cm))
         
+        # Tortured phrases
+        if 'tortured_phrases' in results:
+            story.append(Paragraph("3.3 Tortured Phrases", subsection_style))
+            tp_data = results['tortured_phrases']
+            occurrences = tp_data.get('all_occurrences', [])
+            
+            story.append(Paragraph(f"• Total occurrences: {tp_data.get('total_occurrences', 0)}", normal_style))
+            story.append(Paragraph(f"• Unique tortured phrases: {tp_data.get('unique_tortured_count', 0)}", normal_style))
+            story.append(Paragraph(f"• Frequency per 1000 words: {tp_data.get('tortured_per_1000_words', 0):.2f}", normal_style))
+            
+            if tp_data.get('tortured_phrases_found'):
+                story.append(Paragraph("Tortured phrases found:", example_style))
+                for phrase in tp_data['tortured_phrases_found']:
+                    story.append(Paragraph(f"  • '{phrase['tortured']}' → correct: {phrase['correct']} (found {phrase['count']} times)", example_style))
+            
+            if occurrences:
+                story.append(Spacer(1, 0.2*cm))
+                story.append(Paragraph("Examples with context:", example_style))
+                for occ in occurrences[:20]:
+                    context = clean_text_for_pdf(occ.get('context', ''))[:200]
+                    story.append(Paragraph(f"  • '{occ['tortured']}' → ...{context}...", example_style))
+            story.append(Spacer(1, 0.3*cm))
+        
         # Перечисления
         if 'enumeration' in results:
-            story.append(Paragraph("3.3 Strict Enumerations", subsection_style))
+            story.append(Paragraph("3.4 Strict Enumerations", subsection_style))
             enum_data = results['enumeration']
             enumerations = enum_data.get('all_enumerations', [])
             story.append(Paragraph(f"• Found: {len(enumerations)} enumerations", normal_style))
@@ -3585,7 +4029,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Апострофы
         if 'apostrophe' in results:
-            story.append(Paragraph("3.4 Apostrophe Usage", subsection_style))
+            story.append(Paragraph("3.5 Apostrophe Usage", subsection_style))
             apost_data = results['apostrophe']
             apostrophes = apost_data.get('all_apostrophes', [])
             story.append(Paragraph(f"• Found: {len(apostrophes)} apostrophes", normal_style))
@@ -3598,7 +4042,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Пунктуация
         if 'punctuation' in results:
-            story.append(Paragraph("3.5 Punctuation Analysis", subsection_style))
+            story.append(Paragraph("3.6 Punctuation Analysis", subsection_style))
             punct_data = results['punctuation']
             story.append(Paragraph(f"• Exclamation marks: {punct_data.get('exclamation_count', 0)}", normal_style))
             story.append(Paragraph(f"• Question marks: {punct_data.get('question_count', 0)}", normal_style))
@@ -3614,7 +4058,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Скобки
         if 'parenthesis' in results:
-            story.append(Paragraph("3.6 Parenthesis Analysis", subsection_style))
+            story.append(Paragraph("3.7 Parenthesis Analysis", subsection_style))
             paren_data = results['parenthesis']
             parentheses = paren_data.get('all_parentheses', [])
             story.append(Paragraph(f"• Long parentheses (≥5 words): {paren_data.get('long_parentheses', 0)}", normal_style))
@@ -3623,13 +4067,13 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
             if parentheses:
                 story.append(Paragraph("Examples:", example_style))
                 for p in parentheses[:50]:
-                    text = clean_text_for_pdf(p.get('text', ''))[:100]
-                    story.append(Paragraph(f"  • ({text}) — {p.get('word_count', 0)} words", example_style))
+                    text_content = clean_text_for_pdf(p.get('text', ''))[:100]
+                    story.append(Paragraph(f"  • ({text_content}) — {p.get('word_count', 0)} words", example_style))
             story.append(Spacer(1, 0.3*cm))
         
         # Повторы
         if 'repetitiveness' in results:
-            story.append(Paragraph("3.7 Repetitiveness Analysis", subsection_style))
+            story.append(Paragraph("3.8 Repetitiveness Analysis", subsection_style))
             rep_data = results['repetitiveness']
             repetitions = rep_data.get('all_repetitions', [])
             story.append(Paragraph(f"• Found: {len(repetitions)} repeated phrases", normal_style))
@@ -3642,7 +4086,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Тире
         if 'dashes' in results:
-            story.append(Paragraph("3.8 Dash Analysis", subsection_style))
+            story.append(Paragraph("3.9 Dash Analysis", subsection_style))
             dash_data = results['dashes']
             dashes = dash_data.get('all_dash_sentences', [])
             story.append(Paragraph(f"• Sentences with dashes: {len(dashes)}", normal_style))
@@ -3657,7 +4101,7 @@ def generate_pdf_report(results_data, topic_name="CT(A)I-detector Analysis"):
         
         # Лексическое разнообразие
         if 'lexical_diversity' in results:
-            story.append(Paragraph("3.9 Lexical Diversity", subsection_style))
+            story.append(Paragraph("3.10 Lexical Diversity", subsection_style))
             lex_data = results['lexical_diversity']
             story.append(Paragraph(f"• TTR: {lex_data.get('ttr', 0):.3f}", normal_style))
             if lex_data.get('mtld', 0) > 0:
@@ -4190,6 +4634,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
         sentences = results_data.get('sentences', [])
         results = results_data.get('results', {})
         integrated = results_data.get('integrated', {})
+        text_stats = results_data.get('text_statistics', {})
         module_scores = integrated.get('module_scores', [])
         
         # 1. OVERALL RISK ASSESSMENT
@@ -4253,6 +4698,111 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
         
         story.append(stats_table)
         story.append(Spacer(1, 0.5*cm))
+        
+        # 1.5 DETAILED TEXT STATISTICS (NEW!)
+        if text_stats and report_type == "full":
+            add_section_header(story, "Detailed Text Statistics", level=2)
+            
+            # Create a two-column layout for statistics
+            stats_data_rows = []
+            
+            # Sentence length
+            sent_stats = text_stats.get('statistics', {}).get('sentence_length', {})
+            stats_data_rows.append(["Sentence Length (words)", 
+                                   f"Min: {sent_stats.get('min', 0):.1f}, Max: {sent_stats.get('max', 0):.1f}, "
+                                   f"Mean: {sent_stats.get('mean', 0):.1f}, Median: {sent_stats.get('median', 0):.1f}"])
+            
+            # Paragraph length
+            para_stats = text_stats.get('statistics', {}).get('paragraph_length', {})
+            stats_data_rows.append(["Paragraph Length (words)", 
+                                   f"Min: {para_stats.get('min', 0):.1f}, Max: {para_stats.get('max', 0):.1f}, "
+                                   f"Mean: {para_stats.get('mean', 0):.1f}, Median: {para_stats.get('median', 0):.1f}"])
+            
+            # Commas per sentence
+            comma_stats = text_stats.get('statistics', {}).get('commas_per_sentence', {})
+            stats_data_rows.append(["Commas per Sentence", 
+                                   f"Min: {comma_stats.get('min', 0):.1f}, Max: {comma_stats.get('max', 0):.1f}, "
+                                   f"Mean: {comma_stats.get('mean', 0):.1f}, Median: {comma_stats.get('median', 0):.1f}"])
+            
+            # Apostrophes per sentence
+            apost_stats = text_stats.get('statistics', {}).get('apostrophes_per_sentence', {})
+            stats_data_rows.append(["Apostrophes per Sentence", 
+                                   f"Min: {apost_stats.get('min', 0):.1f}, Max: {apost_stats.get('max', 0):.1f}, "
+                                   f"Mean: {apost_stats.get('mean', 0):.1f}, Median: {apost_stats.get('median', 0):.1f}"])
+            
+            # -ly adverbs per sentence
+            ly_stats = text_stats.get('statistics', {}).get('ly_adverbs_per_sentence', {})
+            stats_data_rows.append(["-ly Adverbs per Sentence", 
+                                   f"Min: {ly_stats.get('min', 0):.1f}, Max: {ly_stats.get('max', 0):.1f}, "
+                                   f"Mean: {ly_stats.get('mean', 0):.1f}, Median: {ly_stats.get('median', 0):.1f}"])
+            
+            # Gerund + the per sentence
+            gerund_the_stats = text_stats.get('statistics', {}).get('gerund_the_per_sentence', {})
+            stats_data_rows.append(["Gerund + 'the' per Sentence", 
+                                   f"Min: {gerund_the_stats.get('min', 0):.1f}, Max: {gerund_the_stats.get('max', 0):.1f}, "
+                                   f"Mean: {gerund_the_stats.get('mean', 0):.1f}, Median: {gerund_the_stats.get('median', 0):.1f}"])
+            
+            # Gerund + of per sentence
+            gerund_of_stats = text_stats.get('statistics', {}).get('gerund_of_per_sentence', {})
+            stats_data_rows.append(["Gerund + 'of' per Sentence", 
+                                   f"Min: {gerund_of_stats.get('min', 0):.1f}, Max: {gerund_of_stats.get('max', 0):.1f}, "
+                                   f"Mean: {gerund_of_stats.get('mean', 0):.1f}, Median: {gerund_of_stats.get('median', 0):.1f}"])
+            
+            # Indefinite articles per sentence
+            article_stats = text_stats.get('statistics', {}).get('indefinite_articles_per_sentence', {})
+            stats_data_rows.append(["Indefinite Articles per Sentence", 
+                                   f"Min: {article_stats.get('min', 0):.1f}, Max: {article_stats.get('max', 0):.1f}, "
+                                   f"Mean: {article_stats.get('mean', 0):.1f}, Median: {article_stats.get('median', 0):.1f}"])
+            
+            # Create table with statistics
+            stats_table_detailed = Table(stats_data_rows, colWidths=[doc.width/3, doc.width/1.5])
+            stats_table_detailed.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#16A085')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8F9FA')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5DBDB')),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            
+            story.append(stats_table_detailed)
+            story.append(Spacer(1, 0.5*cm))
+            
+            # Figure mentions
+            if text_stats.get('figure_mentions'):
+                story.append(Paragraph(f"Figure Mentions (Total: {text_stats.get('figure_count', 0)}):", 
+                                      ParagraphStyle('FigureHeading', parent=subsection_style, fontSize=10)))
+                for mention in text_stats['figure_mentions'][:5]:
+                    clean_sent = clean_text_for_pdf(mention['sentence'])[:150]
+                    story.append(Paragraph(f"• {clean_sent}...", example_style))
+                if len(text_stats['figure_mentions']) > 5:
+                    story.append(Paragraph(f"... and {len(text_stats['figure_mentions']) - 5} more mentions", example_style))
+                story.append(Spacer(1, 0.3*cm))
+            
+            # Table mentions
+            if text_stats.get('table_mentions'):
+                story.append(Paragraph(f"Table Mentions (Total: {text_stats.get('table_count', 0)}):", 
+                                      ParagraphStyle('TableHeading', parent=subsection_style, fontSize=10)))
+                for mention in text_stats['table_mentions'][:5]:
+                    clean_sent = clean_text_for_pdf(mention['sentence'])[:150]
+                    story.append(Paragraph(f"• {clean_sent}...", example_style))
+                if len(text_stats['table_mentions']) > 5:
+                    story.append(Paragraph(f"... and {len(text_stats['table_mentions']) - 5} more mentions", example_style))
+                story.append(Spacer(1, 0.3*cm))
+            
+            # Supplementary mentions
+            if text_stats.get('supplementary_mentions'):
+                story.append(Paragraph(f"Supplementary Mentions (Total: {text_stats.get('supplementary_count', 0)}):", 
+                                      ParagraphStyle('SuppHeading', parent=subsection_style, fontSize=10)))
+                for mention in text_stats['supplementary_mentions'][:5]:
+                    clean_sent = clean_text_for_pdf(mention['sentence'])[:150]
+                    story.append(Paragraph(f"• {clean_sent}...", example_style))
+                if len(text_stats['supplementary_mentions']) > 5:
+                    story.append(Paragraph(f"... and {len(text_stats['supplementary_mentions']) - 5} more mentions", example_style))
+                story.append(Spacer(1, 0.3*cm))
         
         # 2. MODULE CONTRIBUTIONS
         add_section_header(story, "2. MODULE CONTRIBUTIONS", level=1, anchor="section2")
@@ -4396,9 +4946,48 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                         story.append(Paragraph(f"  • '{occ.get('phrase', '')}' → ...{context}...", example_style))
                 story.append(Spacer(1, 0.2*cm))
             
+            # Tortured Phrases
+            if 'tortured_phrases' in results:
+                add_section_header(story, "3.3 Tortured Phrases", level=2, anchor="section3.3")
+                tp_data = results['tortured_phrases']
+                occurrences = tp_data.get('all_occurrences', [])
+                
+                story.append(Paragraph(f"• Total occurrences: {tp_data.get('total_occurrences', 0)}", normal_style))
+                story.append(Paragraph(f"• Unique tortured phrases: {tp_data.get('unique_tortured_count', 0)}", normal_style))
+                story.append(Paragraph(f"• Frequency per 1000 words: {tp_data.get('tortured_per_1000_words', 0):.2f}", normal_style))
+                
+                if tp_data.get('tortured_phrases_found'):
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Tortured phrases found:", 
+                                          ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
+                    for phrase in tp_data['tortured_phrases_found']:
+                        story.append(Paragraph(f"• '{phrase['tortured']}' → correct: {phrase['correct']} (found {phrase['count']} times)", 
+                                              example_style))
+                
+                if occurrences:
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Examples with context:", 
+                                          ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')))
+                    
+                    by_phrase = {}
+                    for occ in occurrences:
+                        key = f"{occ['tortured']} → {occ['correct']}"
+                        if key not in by_phrase:
+                            by_phrase[key] = []
+                        by_phrase[key].append(occ)
+                    
+                    for phrase_group, group_occurrences in list(by_phrase.items())[:5]:  # Топ-5 фраз
+                        story.append(Paragraph(f"  {phrase_group}:", example_style))
+                        for i, occ in enumerate(group_occurrences[:3]):  # По 3 примера на фразу
+                            context = clean_text_for_pdf(occ['context'])[:250]
+                            story.append(Paragraph(f"    {i+1}. ...{context}...", example_style))
+                        story.append(Spacer(1, 0.1*cm))
+                
+                story.append(Spacer(1, 0.2*cm))
+            
             # Enumerations
             if 'enumeration' in results:
-                add_section_header(story, "3.3 Strict Enumerations", level=2, anchor="section3.3")
+                add_section_header(story, "3.4 Strict Enumerations", level=2, anchor="section3.4")
                 enum_data = results['enumeration']
                 enumerations = enum_data.get('all_enumerations', [])
                 story.append(Paragraph(f"• Found: {len(enumerations)} enumerations", normal_style))
@@ -4411,7 +5000,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             # Apostrophes
             if 'apostrophe' in results:
-                add_section_header(story, "3.4 Apostrophe Usage", level=2, anchor="section3.4")
+                add_section_header(story, "3.5 Apostrophe Usage", level=2, anchor="section3.5")
                 apost_data = results['apostrophe']
                 apostrophes = apost_data.get('all_apostrophes', [])
                 story.append(Paragraph(f"• Found: {len(apostrophes)} apostrophes", normal_style))
@@ -4423,7 +5012,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             # Punctuation
             if 'punctuation' in results:
-                add_section_header(story, "3.5 Punctuation Analysis", level=2, anchor="section3.5")
+                add_section_header(story, "3.6 Punctuation Analysis", level=2, anchor="section3.6")
                 punct_data = results['punctuation']
                 story.append(Paragraph(f"• Exclamation marks: {punct_data.get('exclamation_count', 0)}", normal_style))
                 story.append(Paragraph(f"• Question marks: {punct_data.get('question_count', 0)}", normal_style))
@@ -4439,7 +5028,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             # Parentheses
             if 'parenthesis' in results:
-                add_section_header(story, "3.6 Parenthesis Analysis", level=2, anchor="section3.6")
+                add_section_header(story, "3.7 Parenthesis Analysis", level=2, anchor="section3.7")
                 paren_data = results['parenthesis']
                 parentheses = paren_data.get('all_parentheses', [])
                 story.append(Paragraph(f"• Long parentheses (≥5 words): {paren_data.get('long_parentheses', 0)}", normal_style))
@@ -4447,13 +5036,13 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
                 if parentheses:
                     story.append(Paragraph("Examples:", example_style))
                     for p in parentheses[:3]:
-                        text = clean_text_for_pdf(p.get('text', ''))[:100]
-                        story.append(Paragraph(f"  • ({text}) — {p.get('word_count', 0)} words", example_style))
+                        text_content = clean_text_for_pdf(p.get('text', ''))[:100]
+                        story.append(Paragraph(f"  • ({text_content}) — {p.get('word_count', 0)} words", example_style))
                 story.append(Spacer(1, 0.2*cm))
             
             # Repetitions
             if 'repetitiveness' in results:
-                add_section_header(story, "3.7 Repetitiveness Analysis", level=2, anchor="section3.7")
+                add_section_header(story, "3.8 Repetitiveness Analysis", level=2, anchor="section3.8")
                 rep_data = results['repetitiveness']
                 repetitions = rep_data.get('all_repetitions', [])
                 story.append(Paragraph(f"• Found: {len(repetitions)} repeated phrases", normal_style))
@@ -4466,7 +5055,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             # Dashes
             if 'dashes' in results:
-                add_section_header(story, "3.8 Dash Analysis", level=2, anchor="section3.8")
+                add_section_header(story, "3.9 Dash Analysis", level=2, anchor="section3.9")
                 dash_data = results['dashes']
                 
                 # Общая статистика
@@ -4498,7 +5087,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             # Lexical diversity
             if 'lexical_diversity' in results:
-                add_section_header(story, "3.9 Lexical Diversity", level=2, anchor="section3.9")
+                add_section_header(story, "3.10 Lexical Diversity", level=2, anchor="section3.10")
                 lex_data = results['lexical_diversity']
                 story.append(Paragraph(f"• TTR: {lex_data.get('ttr', 0):.3f}", normal_style))
                 if lex_data.get('mtld', 0) > 0:
@@ -4712,7 +5301,8 @@ def main():
             modules = [
                 "Unicode Artifacts", "Dashes", "AI Phrases", "Burstiness", "Grammar",
                 "Hedging", "Parentheses", "Punctuation", "Apostrophes", "Enumerations",
-                "Paragraphs", "Repetitiveness", "Lexical Diversity", "Semantic Analysis"
+                "Paragraphs", "Repetitiveness", "Lexical Diversity", "Semantic Analysis",
+                "Text Statistics"
             ]
             
             progress_bar = st.progress(0)
@@ -4754,20 +5344,20 @@ def main():
                 
                 # Run all analyzers with progress updates
                 analyzers = [
-                    ('unicode', UnicodeArtifactDetector(), 14),
-                    ('dashes', DashAnalyzer(), 18),
-                    ('phrases', AIPhraseDetector(), 22),
-                    ('tortured_phrases', TorturedPhraseDetector(), 26),
-                    ('burstiness', BurstinessAnalyzer(), 30),
-                    ('grammar', GrammarAnalyzer(), 35),
-                    ('hedging', HedgingAnalyzer(), 40),
-                    ('parenthesis', ParenthesisAnalyzer(), 45),
-                    ('punctuation', PunctuationAnalyzer(), 50),
-                    ('apostrophe', ApostropheAnalyzer(), 55),
-                    ('enumeration', EnumerationAnalyzer(), 60),
-                    ('paragraph', ParagraphAnalyzer(), 65),
-                    ('repetitiveness', RepetitivenessAnalyzer(), 70),
-                    ('lexical_diversity', LexicalDiversityAnalyzer(), 75)
+                    ('unicode', UnicodeArtifactDetector(), 13),
+                    ('dashes', DashAnalyzer(), 17),
+                    ('phrases', AIPhraseDetector(), 21),
+                    ('tortured_phrases', TorturedPhraseDetector(), 25),
+                    ('burstiness', BurstinessAnalyzer(), 29),
+                    ('grammar', GrammarAnalyzer(), 33),
+                    ('hedging', HedgingAnalyzer(), 37),
+                    ('parenthesis', ParenthesisAnalyzer(), 41),
+                    ('punctuation', PunctuationAnalyzer(), 45),
+                    ('apostrophe', ApostropheAnalyzer(), 49),
+                    ('enumeration', EnumerationAnalyzer(), 53),
+                    ('paragraph', ParagraphAnalyzer(), 57),
+                    ('repetitiveness', RepetitivenessAnalyzer(), 61),
+                    ('lexical_diversity', LexicalDiversityAnalyzer(), 65)
                 ]
                 
                 # Show modules being analyzed
@@ -4795,12 +5385,34 @@ def main():
                     progress_bar.progress(progress)
                     time.sleep(0.3)
                 
+                # Text Statistics Analyzer (NEW!)
+                status_text.text("Calculating detailed text statistics...")
+                progress_bar.progress(68)
+                text_stats_analyzer = TextStatisticsAnalyzer()
+                text_stats = text_stats_analyzer.analyze(text, sentences)
+                results['text_statistics'] = text_stats
+                
+                # Update module pills for text statistics
+                module_html = '<div class="module-status">'
+                for j, mod in enumerate(modules):
+                    if j < len(analyzers):
+                        module_html += f'<span class="module-pill completed">✓ {mod}</span>'
+                    elif j == len(analyzers):
+                        module_html += f'<span class="module-pill active">⚡ {mod}</span>'
+                    else:
+                        module_html += f'<span class="module-pill">{mod}</span>'
+                module_html += '</div>'
+                module_container.markdown(module_html, unsafe_allow_html=True)
+                
+                progress_bar.progress(72)
+                time.sleep(0.3)
+                
                 # Deep analysis if available
                 deep_analysis = st.checkbox("Enable Deep Analysis (slower)", value=False)
                 if deep_analysis:
                     deep_analyzers = [
-                        ('log_prob', LogProbAnalyzer(), 80),
-                        ('perplexity', PerplexityAnalyzer(), 85),
+                        ('log_prob', LogProbAnalyzer(), 78),
+                        ('perplexity', PerplexityAnalyzer(), 84),
                         ('semantic', SemanticAnalyzer(), 90),
                         ('ml_classifier', MLClassifier(), 95)
                     ]
@@ -4829,7 +5441,8 @@ def main():
                     'text': text,
                     'sentences': sentences,
                     'results': results,
-                    'integrated': integrated
+                    'integrated': integrated,
+                    'text_statistics': text_stats
                 }
                 
                 # Move to step 3
@@ -4851,6 +5464,7 @@ def main():
         sentences = data['sentences']
         results = data['results']
         integrated = data['integrated']
+        text_stats = data.get('text_statistics', {})
         
         with st.container():
             st.markdown('<div class="step-container">', unsafe_allow_html=True)
@@ -4974,6 +5588,95 @@ def main():
                 """, unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
+            
+            # NEW: Detailed Text Statistics Section
+            if text_stats:
+                st.markdown("---")
+                st.markdown("## 📊 Detailed Text Statistics")
+                
+                # Create columns for statistics display
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("### Sentence-Level Statistics")
+                    
+                    # Sentence length
+                    sent_stats = text_stats.get('statistics', {}).get('sentence_length', {})
+                    st.metric("Sentence Length (words)", 
+                             f"μ={sent_stats.get('mean', 0):.1f} | med={sent_stats.get('median', 0):.1f}",
+                             f"min={sent_stats.get('min', 0):.0f} max={sent_stats.get('max', 0):.0f}")
+                    
+                    # Commas per sentence
+                    comma_stats = text_stats.get('statistics', {}).get('commas_per_sentence', {})
+                    st.metric("Commas per Sentence", 
+                             f"μ={comma_stats.get('mean', 0):.1f} | med={comma_stats.get('median', 0):.1f}",
+                             f"min={comma_stats.get('min', 0):.0f} max={comma_stats.get('max', 0):.0f}")
+                    
+                    # Apostrophes per sentence
+                    apost_stats = text_stats.get('statistics', {}).get('apostrophes_per_sentence', {})
+                    st.metric("Apostrophes per Sentence", 
+                             f"μ={apost_stats.get('mean', 0):.1f} | med={apost_stats.get('median', 0):.1f}",
+                             f"min={apost_stats.get('min', 0):.0f} max={apost_stats.get('max', 0):.0f}")
+                    
+                    # -ly adverbs per sentence
+                    ly_stats = text_stats.get('statistics', {}).get('ly_adverbs_per_sentence', {})
+                    st.metric("-ly Adverbs per Sentence", 
+                             f"μ={ly_stats.get('mean', 0):.1f} | med={ly_stats.get('median', 0):.1f}",
+                             f"min={ly_stats.get('min', 0):.0f} max={ly_stats.get('max', 0):.0f}")
+                
+                with col2:
+                    st.markdown("### Sentence-Level Statistics (continued)")
+                    
+                    # Gerund + the per sentence
+                    gerund_the_stats = text_stats.get('statistics', {}).get('gerund_the_per_sentence', {})
+                    st.metric("Gerund + 'the' per Sentence", 
+                             f"μ={gerund_the_stats.get('mean', 0):.1f} | med={gerund_the_stats.get('median', 0):.1f}",
+                             f"min={gerund_the_stats.get('min', 0):.0f} max={gerund_the_stats.get('max', 0):.0f}")
+                    
+                    # Gerund + of per sentence
+                    gerund_of_stats = text_stats.get('statistics', {}).get('gerund_of_per_sentence', {})
+                    st.metric("Gerund + 'of' per Sentence", 
+                             f"μ={gerund_of_stats.get('mean', 0):.1f} | med={gerund_of_stats.get('median', 0):.1f}",
+                             f"min={gerund_of_stats.get('min', 0):.0f} max={gerund_of_stats.get('max', 0):.0f}")
+                    
+                    # Indefinite articles per sentence
+                    article_stats = text_stats.get('statistics', {}).get('indefinite_articles_per_sentence', {})
+                    st.metric("Indefinite Articles (a/an) per Sentence", 
+                             f"μ={article_stats.get('mean', 0):.1f} | med={article_stats.get('median', 0):.1f}",
+                             f"min={article_stats.get('min', 0):.0f} max={article_stats.get('max', 0):.0f}")
+                    
+                    # Paragraph length (if available)
+                    para_stats = text_stats.get('statistics', {}).get('paragraph_length', {})
+                    if para_stats:
+                        st.metric("Paragraph Length (words)", 
+                                 f"μ={para_stats.get('mean', 0):.1f} | med={para_stats.get('median', 0):.1f}",
+                                 f"min={para_stats.get('min', 0):.0f} max={para_stats.get('max', 0):.0f}")
+                
+                # Figure, Table, Supplementary mentions
+                st.markdown("### References to Figures, Tables, and Supplementary Materials")
+                
+                col_fig1, col_fig2, col_fig3 = st.columns(3)
+                
+                with col_fig1:
+                    st.metric("Figure Mentions", text_stats.get('figure_count', 0))
+                    if text_stats.get('figure_mentions'):
+                        with st.expander("View Figure mentions"):
+                            for mention in text_stats['figure_mentions'][:20]:
+                                st.write(f"**{mention['match']}**: {mention['sentence'][:200]}...")
+                
+                with col_fig2:
+                    st.metric("Table Mentions", text_stats.get('table_count', 0))
+                    if text_stats.get('table_mentions'):
+                        with st.expander("View Table mentions"):
+                            for mention in text_stats['table_mentions'][:20]:
+                                st.write(f"**{mention['match']}**: {mention['sentence'][:200]}...")
+                
+                with col_fig3:
+                    st.metric("Supplementary Mentions", text_stats.get('supplementary_count', 0))
+                    if text_stats.get('supplementary_mentions'):
+                        with st.expander("View Supplementary mentions"):
+                            for mention in text_stats['supplementary_mentions'][:20]:
+                                st.write(f"**{mention['match']}**: {mention['sentence'][:200]}...")
             
             # Detailed results tabs
             tabs = st.tabs(["Artifacts", "Enumerations", "Repetitions", "Lexical", "All Examples"])
@@ -5173,7 +5876,8 @@ def main():
                                 'text': text,
                                 'sentences': sentences,
                                 'results': results,
-                                'integrated': integrated
+                                'integrated': integrated,
+                                'text_statistics': text_stats
                             }
                             
                             # Generate full report
@@ -5202,7 +5906,8 @@ def main():
                                 'text': text,
                                 'sentences': sentences,
                                 'results': results,
-                                'integrated': integrated
+                                'integrated': integrated,
+                                'text_statistics': text_stats
                             }
                             
                             # Generate concise report
@@ -5228,5 +5933,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
