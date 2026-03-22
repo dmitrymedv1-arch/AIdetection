@@ -4894,7 +4894,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             
             story.append(stats_table_detailed)
             story.append(Spacer(1, 0.5*cm))
-            
+
             # Figure mentions
             if text_stats.get('figure_mentions'):
                 story.append(Paragraph(f"Figure Mentions (Total: {text_stats.get('figure_count', 0)}):", 
@@ -4909,7 +4909,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             # Table mentions
             if text_stats.get('table_mentions'):
                 story.append(Paragraph(f"Table Mentions (Total: {text_stats.get('table_count', 0)}):", 
-                                      ParagraphStyle('TableHeading', parent=styles['Heading4'], fontSize=10)
+                                      ParagraphStyle('TableHeading', parent=styles['Heading4'], fontSize=10)))
                 for mention in text_stats['table_mentions'][:5]:
                     clean_sent = clean_text_for_pdf(mention['sentence'])[:150]
                     story.append(Paragraph(f"• {clean_sent}...", example_style))
@@ -4920,7 +4920,7 @@ def generate_enhanced_pdf_report(results_data, topic_name="CT(A)I-detector Analy
             # Supplementary mentions
             if text_stats.get('supplementary_mentions'):
                 story.append(Paragraph(f"Supplementary Mentions (Total: {text_stats.get('supplementary_count', 0)}):", 
-                                      ParagraphStyle('SuppHeading', parent=styles['Heading4'], fontSize=10)
+                                      ParagraphStyle('SuppHeading', parent=styles['Heading4'], fontSize=10)))
                 for mention in text_stats['supplementary_mentions'][:5]:
                     clean_sent = clean_text_for_pdf(mention['sentence'])[:150]
                     story.append(Paragraph(f"• {clean_sent}...", example_style))
