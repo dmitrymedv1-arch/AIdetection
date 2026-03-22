@@ -1064,53 +1064,129 @@ class AIPhraseDetector:
         
         self.transition_threshold = 12
     
-def analyze(self, text: str, sentences: List[str]) -> Dict:
-    """
-    Comprehensive text statistics analyzer with improved detection.
-    """
-    results = {
-        'sentence_lengths': [],
-        'paragraph_lengths': [],
-        'commas_per_sentence': [],
-        'commas_per_paragraph': [],
-        'apostrophes_per_sentence': [],
-        'apostrophes_per_paragraph': [],
-        'ly_adverbs_per_sentence': [],
-        'ly_adverbs_per_paragraph': [],
-        'gerund_the_per_sentence': [],
-        'gerund_the_per_paragraph': [],
-        'gerund_of_per_sentence': [],
-        'gerund_of_per_paragraph': [],
-        'indefinite_articles_per_sentence': [],
-        'indefinite_articles_per_paragraph': [],
-        'figure_mentions': [],
-        'table_mentions': [],
-        'supplementary_mentions': [],
-        # NEW: Gerund context storage
-        'gerund_contexts': [],
-        'gerund_the_count': 0,
-        'gerund_of_count': 0,
-        'gerund_a_count': 0,
-        'gerund_an_count': 0,
-        'statistics': {
-            'sentence_length': {},
-            'paragraph_length': {},
-            'commas_per_sentence': {},
-            'commas_per_paragraph': {},
-            'apostrophes_per_sentence': {},
-            'apostrophes_per_paragraph': {},
-            'ly_adverbs_per_sentence': {},
-            'ly_adverbs_per_paragraph': {},
-            'gerund_the_per_sentence': {},
-            'gerund_the_per_paragraph': {},
-            'gerund_of_per_sentence': {},
-            'gerund_of_per_paragraph': {},
-            'indefinite_articles_per_sentence': {},
-            'indefinite_articles_per_paragraph': {}
+    def analyze(self, text: str, sentences: List[str]) -> Dict:
+        """Analyze text for AI phrases and clichés"""
+        results = {
+            'ai_phrase_count': 0,
+            'ai_phrases_found': [],
+            'all_phrase_occurrences': [],  # Все найденные вхождения с контекстом
+            'top_phrases': [],
+            'metadiscourse_count': 0,
+            'metadiscourse_markers': [],
+            'transition_score': 0,
+            'risk_level': 'none',
+            'risk_score': 0,
+            'confidence': 0,
+            'statistics': {
+                'mean_phrases_per_sentence': 0,
+                'median_phrases_per_sentence': 0,
+                'max_phrases_in_sentence': 0,
+                'distribution': []
+            }
         }
-    }
-    
-    if not text or not sentences:
+        
+        if not text or not sentences:
+            return results
+        
+        text_lower = text.lower()
+        total_sentences = len(sentences)
+        
+        # Search for AI phrases
+        phrase_counts = Counter()
+        phrase_positions = []
+        
+        for phrase in self.ai_phrases:
+            # Find all occurrences with context
+            matches = list(re.finditer(re.escape(phrase), text_lower, re.IGNORECASE))
+            if matches:
+                phrase_counts[phrase] += len(matches)
+                
+                for match in matches[:20]:  # Limit per phrase for performance
+                    start_pos = match.start()
+                    # Get context (50 chars before and after)
+                    context_start = max(0, start_pos - 100)
+                    context_end = min(len(text), start_pos + len(phrase) + 100)
+                    context = text[context_start:context_end].strip()
+                    
+                    occurrence = {
+                        'phrase': phrase,
+                        'context': context,
+                        'position': start_pos
+                    }
+                    results['all_phrase_occurrences'].append(occurrence)
+        
+        # Search for metadiscourse markers
+        for marker in self.metadiscourse_markers:
+            count = text_lower.count(marker)
+            if count > 0:
+                results['metadiscourse_count'] += count
+                results['metadiscourse_markers'].append({'marker': marker, 'count': count})
+        
+        # Calculate statistics
+        results['ai_phrase_count'] = len(results['all_phrase_occurrences'])
+        
+        # Get top phrases
+        if phrase_counts:
+            results['top_phrases'] = phrase_counts.most_common(20)
+        
+        # Distribution by sentence
+        phrases_per_sentence = []
+        for sent in sentences[:200]:
+            sent_lower = sent.lower()
+            sent_count = sum(1 for phrase in self.ai_phrases if phrase in sent_lower)
+            phrases_per_sentence.append(sent_count)
+        
+        if phrases_per_sentence:
+            results['statistics']['mean_phrases_per_sentence'] = float(np.mean(phrases_per_sentence))
+            results['statistics']['median_phrases_per_sentence'] = float(np.median(phrases_per_sentence))
+            results['statistics']['max_phrases_in_sentence'] = float(np.max(phrases_per_sentence))
+            results['statistics']['distribution'] = phrases_per_sentence[:100]
+        
+        # Transition score (ratio of metadiscourse to total phrases)
+        if results['ai_phrase_count'] > 0:
+            results['transition_score'] = results['metadiscourse_count'] / results['ai_phrase_count']
+        
+        # Risk assessment
+        risk_score = 0
+        confidence = 0.5
+        
+        # More AI phrases = higher risk
+        if results['ai_phrase_count'] > 50:
+            risk_score = 6
+            confidence = 0.95
+        elif results['ai_phrase_count'] > 25:
+            risk_score = 5
+            confidence = 0.9
+        elif results['ai_phrase_count'] > 10:
+            risk_score = 4
+            confidence = 0.85
+        elif results['ai_phrase_count'] > 5:
+            risk_score = 3
+            confidence = 0.7
+        elif results['ai_phrase_count'] > 2:
+            risk_score = 2
+            confidence = 0.6
+        elif results['ai_phrase_count'] > 0:
+            risk_score = 1
+            confidence = 0.5
+        
+        # Adjust for high transition score (more transitions = more human-like)
+        if results['transition_score'] > 0.5:
+            risk_score = max(0, risk_score - 1)
+            confidence = min(confidence + 0.1, 1.0)
+        
+        results['risk_score'] = risk_score
+        results['confidence'] = confidence
+        
+        if risk_score >= 5:
+            results['risk_level'] = 'critical'
+        elif risk_score >= 4:
+            results['risk_level'] = 'high'
+        elif risk_score >= 2:
+            results['risk_level'] = 'medium'
+        elif risk_score >= 1:
+            results['risk_level'] = 'low'
+        
         return results
     
     # Split into paragraphs (improved)
